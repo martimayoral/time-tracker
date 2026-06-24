@@ -1,21 +1,24 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { Clock, LogOut, Moon, Play, Square, Sun, Trash2 } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/lib/auth"
 import { supabase } from "@/lib/supabase"
+import { useTheme } from "@/lib/theme"
 import {
   createTimeEntry,
   deleteTimeEntry,
   formatDuration,
-  formatTime,
   getTimeEntries,
   groupEntriesByDay,
   type TimeEntry,
   totalDurationForDay,
   updateTimeEntry,
 } from "@/lib/time-entries"
+import { cn } from "@/lib/utils"
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -23,6 +26,7 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const { user, loading } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -40,11 +44,17 @@ function Home() {
   return (
     <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 p-6">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Time Tracker</h1>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">{user.email}</span>
-          <Button variant="outline" size="sm" onClick={() => supabase.auth.signOut()}>
-            Sign out
+        <div className="flex items-center gap-2">
+          <Clock className="size-5 text-primary" />
+          <h1 className="text-xl font-semibold tracking-tight">Time Tracker</h1>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="mr-2 text-sm text-muted-foreground">{user.email}</span>
+          <Button variant="ghost" size="icon-xs" onClick={toggleTheme} aria-label="Toggle theme">
+            {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+          </Button>
+          <Button variant="ghost" size="icon-xs" onClick={() => supabase.auth.signOut()} aria-label="Sign out">
+            <LogOut className="size-4" />
           </Button>
         </div>
       </header>
@@ -59,8 +69,6 @@ function Timer() {
   const [description, setDescription] = useState("")
   const [elapsed, setElapsed] = useState("")
   const [loadingEntries, setLoadingEntries] = useState(true)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editDescription, setEditDescription] = useState("")
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const loadEntries = useCallback(async () => {
@@ -137,16 +145,13 @@ function Timer() {
     }
   }
 
-  async function handleEditSave(id: string) {
-    const trimmed = editDescription.trim()
-    if (!trimmed) return
+  async function handleUpdate(id: string, updates: Parameters<typeof updateTimeEntry>[1]) {
     try {
-      const updated = await updateTimeEntry(id, { description: trimmed })
+      const updated = await updateTimeEntry(id, updates)
       setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))
       if (activeEntry?.id === id) {
         setActiveEntry(updated)
       }
-      setEditingId(null)
     } catch (err) {
       console.error("Failed to update entry:", err)
     }
@@ -169,11 +174,13 @@ function Timer() {
               }}
             />
             {activeEntry ? (
-              <Button variant="destructive" onClick={handleStop} className="shrink-0">
+              <Button variant="destructive" onClick={handleStop} className="shrink-0 gap-1.5">
+                <Square className="size-3.5" />
                 Stop
               </Button>
             ) : (
-              <Button onClick={handleStart} disabled={!description.trim()} className="shrink-0">
+              <Button onClick={handleStart} disabled={!description.trim()} className="shrink-0 gap-1.5">
+                <Play className="size-3.5" />
                 Start
               </Button>
             )}
@@ -205,68 +212,127 @@ function Timer() {
             </div>
             <div className="flex flex-col gap-2">
               {dayEntries.map((entry) => (
-                <Card key={entry.id} size="sm">
-                  <CardContent className="flex items-center justify-between gap-3 py-2">
-                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      {editingId === entry.id ? (
-                        <form
-                          className="flex gap-2"
-                          onSubmit={(e) => {
-                            e.preventDefault()
-                            handleEditSave(entry.id)
-                          }}
-                        >
-                          <Input
-                            value={editDescription}
-                            onChange={(e) => setEditDescription(e.target.value)}
-                            autoFocus
-                          />
-                          <Button size="sm" type="submit">
-                            Save
-                          </Button>
-                          <Button size="sm" variant="ghost" type="button" onClick={() => setEditingId(null)}>
-                            Cancel
-                          </Button>
-                        </form>
-                      ) : (
-                        <>
-                          <span className="truncate font-medium">{entry.description}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {formatTime(entry.start_time)}
-                            {entry.end_time ? ` – ${formatTime(entry.end_time)}` : " – running"}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    {editingId !== entry.id && (
-                      <div className="flex items-center gap-2">
-                        <span className="shrink-0 font-mono text-sm">
-                          {formatDuration(entry.start_time, entry.end_time)}
-                        </span>
-                        {!activeEntry || activeEntry.id !== entry.id ? (
-                          <Button
-                            size="icon-xs"
-                            variant="ghost"
-                            onClick={() => {
-                              setEditingId(entry.id)
-                              setEditDescription(entry.description)
-                            }}
-                          >
-                            ✏️
-                          </Button>
-                        ) : null}
-                        <Button size="icon-xs" variant="ghost" onClick={() => handleDelete(entry.id)}>
-                          🗑
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                <TimeEntryRow key={entry.id} entry={entry} onUpdate={handleUpdate} onDelete={handleDelete} />
               ))}
             </div>
           </div>
         ))
       )}
     </div>
+  )
+}
+
+const formatTimeValue = (iso: string) =>
+  new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })
+
+const ghostInput =
+  "h-auto border-transparent bg-transparent px-1.5 py-0.5 shadow-none transition-[border-color] duration-200 group-hover/card:border-input dark:bg-transparent"
+
+const timePickerHidden =
+  "[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:transition-opacity group-hover/card:[&::-webkit-calendar-picker-indicator]:opacity-100"
+
+function TimeEntryRow({
+  entry,
+  onUpdate,
+  onDelete,
+}: {
+  entry: TimeEntry
+  onUpdate: (id: string, updates: Parameters<typeof updateTimeEntry>[1]) => Promise<void>
+  onDelete: (id: string) => void
+}) {
+  const [desc, setDesc] = useState(entry.description)
+  const [startTime, setStartTime] = useState(() => formatTimeValue(entry.start_time))
+  const [endTime, setEndTime] = useState(() => (entry.end_time ? formatTimeValue(entry.end_time) : ""))
+
+  useEffect(() => {
+    setDesc(entry.description)
+    setStartTime(formatTimeValue(entry.start_time))
+    setEndTime(entry.end_time ? formatTimeValue(entry.end_time) : "")
+  }, [entry.start_time, entry.end_time, entry.description])
+
+  const saveChanges = async () => {
+    const updates: Parameters<typeof updateTimeEntry>[1] = {}
+    const trimmed = desc.trim()
+    if (!trimmed) {
+      setDesc(entry.description)
+      return
+    }
+    if (trimmed !== entry.description) updates.description = trimmed
+
+    const origStart = formatTimeValue(entry.start_time)
+    if (startTime && startTime !== origStart) {
+      const d = new Date(entry.start_time)
+      const [h, m] = startTime.split(":").map(Number)
+      d.setHours(h, m, 0, 0)
+      updates.start_time = d.toISOString()
+    }
+
+    if (entry.end_time && endTime) {
+      const origEnd = formatTimeValue(entry.end_time)
+      if (endTime !== origEnd) {
+        const d = new Date(entry.end_time)
+        const [h, m] = endTime.split(":").map(Number)
+        d.setHours(h, m, 0, 0)
+        updates.end_time = d.toISOString()
+      }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await onUpdate(entry.id, updates)
+    }
+  }
+
+  return (
+    <Card size="sm">
+      <CardContent className="flex items-center justify-between gap-3 py-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <Input
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            onBlur={saveChanges}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur()
+            }}
+            className={cn("truncate font-medium", ghostInput)}
+          />
+          <div className="flex items-center gap-1">
+            <Input
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              onBlur={saveChanges}
+              className={cn("w-auto text-xs text-muted-foreground", ghostInput, timePickerHidden)}
+            />
+            <span className="text-xs text-muted-foreground">–</span>
+            {entry.end_time ? (
+              <Input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                onBlur={saveChanges}
+                className={cn("w-auto text-xs text-muted-foreground", ghostInput, timePickerHidden)}
+              />
+            ) : (
+              <span className="text-xs text-muted-foreground">running</span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          <Input
+            readOnly
+            tabIndex={-1}
+            value={formatDuration(entry.start_time, entry.end_time)}
+            className={cn(
+              "w-auto shrink-0 cursor-default text-right font-mono text-sm",
+              ghostInput,
+              "focus-visible:border-transparent focus-visible:ring-0"
+            )}
+          />
+          <Button size="icon-xs" variant="ghost" onClick={() => onDelete(entry.id)} aria-label="Delete entry">
+            <Trash2 className="size-3.5" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   )
 }

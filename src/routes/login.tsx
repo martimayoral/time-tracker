@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { Clock, Moon, Sun } from "lucide-react"
 import { type FormEvent, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -6,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/lib/auth"
 import { supabase } from "@/lib/supabase"
+import { useTheme } from "@/lib/theme"
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -13,6 +15,7 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const { user } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -44,9 +47,17 @@ function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="absolute top-4 right-4">
+        <Button variant="ghost" size="icon-xs" onClick={toggleTheme} aria-label="Toggle theme">
+          {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+        </Button>
+      </div>
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>{isSignUp ? "Create account" : "Sign in"}</CardTitle>
+          <div className="flex items-center gap-2">
+            <Clock className="size-5 text-primary" />
+            <CardTitle>{isSignUp ? "Create account" : "Sign in"}</CardTitle>
+          </div>
           <CardDescription>
             {isSignUp ? "Enter your email to create an account" : "Enter your credentials to continue"}
           </CardDescription>
