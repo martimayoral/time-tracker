@@ -1,0 +1,82 @@
+import { supabase } from "./supabase"
+
+export interface TimeEntry {
+  id: string
+  user_id: string
+  description: string
+  start_time: string
+  end_time: string | null
+  created_at: string
+}
+
+export async function getTimeEntries() {
+  const { data, error } = await supabase.from("time_entries").select("*").order("start_time", { ascending: false })
+
+  if (error) throw error
+  return data as TimeEntry[]
+}
+
+export async function createTimeEntry(entry: { description: string; start_time: string; end_time?: string }) {
+  const { data, error } = await supabase.from("time_entries").insert(entry).select().single()
+
+  if (error) throw error
+  return data as TimeEntry
+}
+
+export async function updateTimeEntry(
+  id: string,
+  updates: Partial<Pick<TimeEntry, "description" | "start_time" | "end_time">>
+) {
+  const { data, error } = await supabase.from("time_entries").update(updates).eq("id", id).select().single()
+
+  if (error) throw error
+  return data as TimeEntry
+}
+
+export async function deleteTimeEntry(id: string) {
+  const { error } = await supabase.from("time_entries").delete().eq("id", id)
+  if (error) throw error
+}
+
+export function formatDuration(startTime: string, endTime: string | null): string {
+  const start = new Date(startTime)
+  const end = endTime ? new Date(endTime) : new Date()
+  const diffMs = end.getTime() - start.getTime()
+  const hours = Math.floor(diffMs / 3600000)
+  const minutes = Math.floor((diffMs % 3600000) / 60000)
+  if (hours === 0) return `${minutes}m`
+  return `${hours}h ${minutes}m`
+}
+
+export function formatTime(dateStr: string): string {
+  return new Date(dateStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+}
+
+export function groupEntriesByDay(entries: TimeEntry[]): Map<string, TimeEntry[]> {
+  const groups = new Map<string, TimeEntry[]>()
+  for (const entry of entries) {
+    const day = new Date(entry.start_time).toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })
+    const existing = groups.get(day) ?? []
+    existing.push(entry)
+    groups.set(day, existing)
+  }
+  return groups
+}
+
+export function totalDurationForDay(entries: TimeEntry[]): string {
+  let totalMs = 0
+  for (const entry of entries) {
+    const start = new Date(entry.start_time)
+    const end = entry.end_time ? new Date(entry.end_time) : new Date()
+    totalMs += end.getTime() - start.getTime()
+  }
+  const hours = Math.floor(totalMs / 3600000)
+  const minutes = Math.floor((totalMs % 3600000) / 60000)
+  if (hours === 0) return `${minutes}m`
+  return `${hours}h ${minutes}m`
+}
