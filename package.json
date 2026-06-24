@@ -13,9 +13,14 @@
     "check:fix": "biome check --write . && tsc -b --noEmit"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.108.2",
     "@tanstack/react-router": "^1.170.16",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "radix-ui": "^1.6.0",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "tailwind-merge": "^3.6.0"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm check --staged --no-errors-on-unmatched"
