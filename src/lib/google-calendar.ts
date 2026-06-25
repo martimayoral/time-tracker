@@ -55,6 +55,7 @@ export function clearCalendarCache() {
 interface CalendarEvent {
   id: string
   summary: string
+  description?: string
   start: { dateTime: string }
   end: { dateTime: string }
   created: string
@@ -73,15 +74,22 @@ export interface TimeEntry {
   created_at: string
 }
 
+function parseRateFromDescription(desc?: string): number | null {
+  if (!desc) return null
+  const match = desc.match(/^([\d.]+)\s*€\/h$/)
+  return match ? parseFloat(match[1]) : null
+}
+
 function eventToEntry(event: CalendarEvent): TimeEntry {
   const isRunning = event.extendedProperties?.private?.running === "true"
+  const rateFromDesc = parseRateFromDescription(event.description)
   return {
     id: event.id,
     user_id: "",
     description: event.summary || "",
     start_time: event.start.dateTime,
     end_time: isRunning ? null : event.end.dateTime,
-    hourly_rate: parseFloat(event.extendedProperties?.private?.hourlyRate || "0"),
+    hourly_rate: rateFromDesc || 0,
     created_at: event.created,
   }
 }
@@ -96,13 +104,16 @@ function entryToEventBody(entry: {
   const isRunning = !entry.end_time
   const endTime = entry.end_time || new Date(new Date(entry.start_time).getTime() + 60000).toISOString()
 
+  const rate = entry.hourly_rate ?? 0
+
   return {
     summary: entry.description,
+    description: rate > 0 ? `${rate} €/h` : undefined,
     start: { dateTime: entry.start_time, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
     end: { dateTime: endTime, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
     extendedProperties: {
       private: {
-        hourlyRate: String(entry.hourly_rate ?? 0),
+        hourlyRate: String(rate),
         ...(isRunning ? { running: "true" } : {}),
       },
     },
