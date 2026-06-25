@@ -1,26 +1,24 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { Clock, LogOut, Moon, Play, Square, Sun, Trash2 } from "lucide-react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { TimeInput } from "@/components/time-input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/lib/auth"
+import { useCreateEntry, useDeleteEntry, useTimeEntries, useUpdateEntry } from "@/lib/queries"
 import { useTheme } from "@/lib/theme"
 import {
-  createTimeEntry,
-  deleteTimeEntry,
   formatDuration,
   formatDurationEditable,
-  getTimeEntries,
   groupEntriesByDay,
   parseDurationToMs,
   parseTimeOfDay,
   type TimeEntry,
   totalDurationForDay,
   totalEarningsForDay,
-  updateTimeEntry,
+  type updateTimeEntry,
 } from "@/lib/time-entries"
 import { cn } from "@/lib/utils"
 
@@ -74,43 +72,37 @@ const ghostInput =
   "h-auto border-transparent bg-transparent px-1.5 py-0.5 shadow-none transition-[border-color] duration-200 group-hover/card:border-input dark:bg-transparent"
 
 function Timer() {
-  const { token, calendarId } = useAuth()
-  const [entries, setEntries] = useState<TimeEntry[]>([])
-  const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null)
+  const { data: entries = [], isLoading: loadingEntries } = useTimeEntries()
+  const createEntry = useCreateEntry()
+  const updateEntry = useUpdateEntry()
+  const deleteEntry = useDeleteEntry()
+
+  const activeEntry = entries.find((e) => !e.end_time) ?? null
+
   const [description, setDescription] = useState("")
   const [hourlyRate, setHourlyRate] = useState("")
   const [elapsed, setElapsed] = useState("")
   const [activeStartTime, setActiveStartTime] = useState("")
-  const [loadingEntries, setLoadingEntries] = useState(true)
+  const prevActiveRef = useRef<TimeEntry | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const loadEntries = useCallback(async () => {
-    if (!token || !calendarId) return
-    try {
-      const data = await getTimeEntries(token, calendarId)
-      setEntries(data)
-      const running = data.find((e) => !e.end_time)
-      if (running) {
-        setActiveEntry(running)
-        setDescription(running.description)
-        setHourlyRate(running.hourly_rate ? String(running.hourly_rate) : "")
-        setActiveStartTime(formatTimeValue(running.start_time))
-      } else {
-        const lastCompleted = data.find((e) => e.end_time)
-        if (lastCompleted?.hourly_rate) {
-          setHourlyRate(String(lastCompleted.hourly_rate))
-        }
-      }
-    } catch (err) {
-      console.error("Failed to load entries:", err)
-    } finally {
-      setLoadingEntries(false)
-    }
-  }, [token, calendarId])
-
   useEffect(() => {
-    loadEntries()
-  }, [loadEntries])
+    const prev = prevActiveRef.current
+    if (activeEntry && activeEntry.id !== prev?.id) {
+      setDescription(activeEntry.description)
+      setHourlyRate(activeEntry.hourly_rate ? String(activeEntry.hourly_rate) : "")
+      setActiveStartTime(formatTimeValue(activeEntry.start_time))
+    } else if (!activeEntry && prev) {
+      setDescription("")
+      if (prev.hourly_rate) setHourlyRate(String(prev.hourly_rate))
+    } else if (!activeEntry && !prev && entries.length > 0) {
+      const lastCompleted = entries.find((e) => e.end_time)
+      if (lastCompleted?.hourly_rate) {
+        setHourlyRate(String(lastCompleted.hourly_rate))
+      }
+    }
+    prevActiveRef.current = activeEntry
+  }, [activeEntry, entries])
 
   useEffect(() => {
     if (activeEntry) {
@@ -124,8 +116,7 @@ function Timer() {
     setElapsed("")
   }, [activeEntry])
 
-  async function handleStart() {
-    if (!token || !calendarId) return
+  function handleStart() {
     let trimmed = description.trim()
     if (!trimmed) {
       const lastCompleted = entries.find((e) => e.end_time)
@@ -133,62 +124,32 @@ function Timer() {
       trimmed = lastCompleted.description
       setDescription(trimmed)
     }
-    try {
-      const parsedRate = parseFloat(hourlyRate)
-      const startIso = new Date().toISOString()
-      const entry = await createTimeEntry(token, calendarId, {
-        description: trimmed,
-        start_time: startIso,
-        hourly_rate: Number.isNaN(parsedRate) ? undefined : parsedRate,
-      })
-      setActiveEntry(entry)
-      setActiveStartTime(formatTimeValue(startIso))
-      setEntries((prev) => [entry, ...prev])
-    } catch (err) {
-      console.error("Failed to start timer:", err)
-    }
+    const parsedRate = parseFloat(hourlyRate)
+    const startIso = new Date().toISOString()
+    setActiveStartTime(formatTimeValue(startIso))
+    createEntry.mutate({
+      description: trimmed,
+      start_time: startIso,
+      hourly_rate: Number.isNaN(parsedRate) ? undefined : parsedRate,
+    })
   }
 
-  async function handleStop() {
-    if (!activeEntry || !token || !calendarId) return
-    try {
-      const updated = await updateTimeEntry(token, calendarId, activeEntry.id, {
-        end_time: new Date().toISOString(),
-      })
-      setActiveEntry(null)
-      setDescription("")
-      setHourlyRate(updated.hourly_rate ? String(updated.hourly_rate) : "")
-      setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))
-    } catch (err) {
-      console.error("Failed to stop timer:", err)
-    }
+  function handleStop() {
+    if (!activeEntry) return
+    updateEntry.mutate({
+      id: activeEntry.id,
+      updates: { end_time: new Date().toISOString() },
+    })
   }
 
-  async function handleDelete(id: string) {
-    if (!token || !calendarId) return
-    try {
-      await deleteTimeEntry(token, calendarId, id)
-      setEntries((prev) => prev.filter((e) => e.id !== id))
-      if (activeEntry?.id === id) {
-        setActiveEntry(null)
-        setDescription("")
-      }
-    } catch (err) {
-      console.error("Failed to delete entry:", err)
-    }
+  function handleDelete(id: string) {
+    deleteEntry.mutate(id)
   }
 
-  async function handleUpdate(id: string, updates: Parameters<typeof updateTimeEntry>[3]) {
-    if (!token || !calendarId) return
-    try {
-      const updated = await updateTimeEntry(token, calendarId, id, updates)
-      setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))
-      if (activeEntry?.id === id) {
-        setActiveEntry(updated)
-        setActiveStartTime(formatTimeValue(updated.start_time))
-      }
-    } catch (err) {
-      console.error("Failed to update entry:", err)
+  function handleUpdate(id: string, updates: Parameters<typeof updateTimeEntry>[3]) {
+    updateEntry.mutate({ id, updates })
+    if (activeEntry?.id === id && updates.start_time) {
+      setActiveStartTime(formatTimeValue(updates.start_time))
     }
   }
 
@@ -343,7 +304,7 @@ function TimeEntryRow({
   onDelete,
 }: {
   entry: TimeEntry
-  onUpdate: (id: string, updates: Parameters<typeof updateTimeEntry>[3]) => Promise<void>
+  onUpdate: (id: string, updates: Parameters<typeof updateTimeEntry>[3]) => void
   onDelete: (id: string) => void
 }) {
   const [desc, setDesc] = useState(entry.description)
@@ -360,18 +321,18 @@ function TimeEntryRow({
     setRate(entry.hourly_rate || 0)
   }, [entry.start_time, entry.end_time, entry.description, entry.hourly_rate])
 
-  const saveDescription = async () => {
+  const saveDescription = () => {
     const trimmed = desc.trim()
     if (!trimmed) {
       setDesc(entry.description)
       return
     }
     if (trimmed !== entry.description) {
-      await onUpdate(entry.id, { description: trimmed })
+      onUpdate(entry.id, { description: trimmed })
     }
   }
 
-  const saveStartTime = async () => {
+  const saveStartTime = () => {
     const parsed = parseTimeOfDay(startTime)
     if (!parsed) {
       setStartTime(formatTimeValue(entry.start_time))
@@ -381,13 +342,13 @@ function TimeEntryRow({
     d.setHours(parsed.hours, parsed.minutes, 0, 0)
     const newIso = d.toISOString()
     if (newIso !== entry.start_time) {
-      await onUpdate(entry.id, { start_time: newIso })
+      onUpdate(entry.id, { start_time: newIso })
     } else {
       setStartTime(formatTimeValue(entry.start_time))
     }
   }
 
-  const saveEndTime = async () => {
+  const saveEndTime = () => {
     if (!entry.end_time) return
     const parsed = parseTimeOfDay(endTime)
     if (!parsed) {
@@ -398,19 +359,19 @@ function TimeEntryRow({
     d.setHours(parsed.hours, parsed.minutes, 0, 0)
     const newIso = d.toISOString()
     if (newIso !== entry.end_time) {
-      await onUpdate(entry.id, { end_time: newIso })
+      onUpdate(entry.id, { end_time: newIso })
     } else {
       setEndTime(formatTimeValue(entry.end_time))
     }
   }
 
-  const saveRate = async () => {
+  const saveRate = () => {
     if (rate !== (entry.hourly_rate || 0)) {
-      await onUpdate(entry.id, { hourly_rate: rate })
+      onUpdate(entry.id, { hourly_rate: rate })
     }
   }
 
-  const saveDuration = async () => {
+  const saveDuration = () => {
     const ms = parseDurationToMs(duration)
     if (ms == null || !entry.end_time) {
       setDuration(formatDurationEditable(entry.start_time, entry.end_time))
@@ -419,7 +380,7 @@ function TimeEntryRow({
     const newEnd = new Date(new Date(entry.start_time).getTime() + ms)
     const newEndIso = newEnd.toISOString()
     if (newEndIso !== entry.end_time) {
-      await onUpdate(entry.id, { end_time: newEndIso })
+      onUpdate(entry.id, { end_time: newEndIso })
     }
   }
 
