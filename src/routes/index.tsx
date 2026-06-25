@@ -12,8 +12,10 @@ import {
   createTimeEntry,
   deleteTimeEntry,
   formatDuration,
+  formatDurationEditable,
   getTimeEntries,
   groupEntriesByDay,
+  parseDurationToMs,
   type TimeEntry,
   totalDurationForDay,
   updateTimeEntry,
@@ -243,11 +245,13 @@ function TimeEntryRow({
   const [desc, setDesc] = useState(entry.description)
   const [startTime, setStartTime] = useState(() => formatTimeValue(entry.start_time))
   const [endTime, setEndTime] = useState(() => (entry.end_time ? formatTimeValue(entry.end_time) : ""))
+  const [duration, setDuration] = useState(() => formatDurationEditable(entry.start_time, entry.end_time))
 
   useEffect(() => {
     setDesc(entry.description)
     setStartTime(formatTimeValue(entry.start_time))
     setEndTime(entry.end_time ? formatTimeValue(entry.end_time) : "")
+    setDuration(formatDurationEditable(entry.start_time, entry.end_time))
   }, [entry.start_time, entry.end_time, entry.description])
 
   const saveChanges = async () => {
@@ -279,6 +283,19 @@ function TimeEntryRow({
 
     if (Object.keys(updates).length > 0) {
       await onUpdate(entry.id, updates)
+    }
+  }
+
+  const saveDuration = async () => {
+    const ms = parseDurationToMs(duration)
+    if (ms == null || !entry.end_time) {
+      setDuration(formatDurationEditable(entry.start_time, entry.end_time))
+      return
+    }
+    const newEnd = new Date(new Date(entry.start_time).getTime() + ms)
+    const newEndIso = newEnd.toISOString()
+    if (newEndIso !== entry.end_time) {
+      await onUpdate(entry.id, { end_time: newEndIso })
     }
   }
 
@@ -318,16 +335,29 @@ function TimeEntryRow({
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <Input
-            readOnly
-            tabIndex={-1}
-            value={formatDuration(entry.start_time, entry.end_time)}
-            className={cn(
-              "w-auto shrink-0 cursor-default text-right font-mono text-sm",
-              ghostInput,
-              "focus-visible:border-transparent focus-visible:ring-0"
-            )}
-          />
+          {entry.end_time ? (
+            <Input
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              onFocus={(e) => e.target.select()}
+              onBlur={saveDuration}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur()
+              }}
+              className={cn("w-16 shrink-0 text-right font-mono text-sm", ghostInput)}
+            />
+          ) : (
+            <Input
+              readOnly
+              tabIndex={-1}
+              value={formatDuration(entry.start_time, entry.end_time)}
+              className={cn(
+                "w-auto shrink-0 cursor-default text-right font-mono text-sm",
+                ghostInput,
+                "focus-visible:border-transparent focus-visible:ring-0"
+              )}
+            />
+          )}
           <Button size="icon-xs" variant="ghost" onClick={() => onDelete(entry.id)} aria-label="Delete entry">
             <Trash2 className="size-3.5" />
           </Button>

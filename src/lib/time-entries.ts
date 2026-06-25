@@ -48,6 +48,40 @@ export function formatDuration(startTime: string, endTime: string | null): strin
   return `${hours}h ${minutes}m`
 }
 
+export function formatDurationEditable(startTime: string, endTime: string | null): string {
+  const start = new Date(startTime)
+  const end = endTime ? new Date(endTime) : new Date()
+  const diffMs = end.getTime() - start.getTime()
+  const hours = Math.floor(diffMs / 3600000)
+  const minutes = Math.floor((diffMs % 3600000) / 60000)
+  return `${hours}:${String(minutes).padStart(2, "0")}`
+}
+
+export function parseDurationToMs(duration: string): number | null {
+  const trimmed = duration.trim()
+  if (!trimmed || !/^\d+:?\d*$/.test(trimmed)) return null
+
+  let hours: number
+  let minutes: number
+
+  if (trimmed.includes(":")) {
+    const [h, m] = trimmed.split(":")
+    hours = parseInt(h || "0", 10)
+    minutes = parseInt(m || "0", 10)
+  } else if (trimmed.length <= 2) {
+    hours = 0
+    minutes = parseInt(trimmed, 10)
+  } else {
+    minutes = parseInt(trimmed.slice(-2), 10)
+    hours = parseInt(trimmed.slice(0, -2), 10)
+  }
+
+  hours += Math.floor(minutes / 60)
+  minutes = minutes % 60
+
+  return (hours * 60 + minutes) * 60000
+}
+
 export function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 }
