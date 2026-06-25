@@ -33,7 +33,7 @@ function Home() {
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Clock className="size-5 text-primary" />
-          <h1 className="text-xl font-semibold tracking-tight">Timely</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Timely - time tracker app</h1>
         </div>
         <div className="flex items-center gap-1">
           <span className="mr-2 text-sm text-muted-foreground">{user.email}</span>

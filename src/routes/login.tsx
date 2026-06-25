@@ -29,12 +29,15 @@ function LoginPage() {
         </Button>
       </div>
       <Card className="w-full max-w-sm">
-        <CardHeader>
+        <CardHeader className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <Clock className="size-5 text-primary" />
-            <CardTitle>Sign in</CardTitle>
+            <CardTitle>Timely - time tracker app</CardTitle>
           </div>
-          <CardDescription>Sign in with your Google account to start tracking time</CardDescription>
+          <CardDescription>
+            Timely is a simple time tracking app that helps you log work hours, manage tasks, and generate reports. Sign
+            in with your Google account to get started.
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <Button onClick={signIn} disabled={loading} className="w-full">
