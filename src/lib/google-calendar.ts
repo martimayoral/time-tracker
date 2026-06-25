@@ -1,6 +1,6 @@
 const BASE = "https://www.googleapis.com/calendar/v3"
-const CALENDAR_NAME = "Time Tracker"
-const CALENDAR_ID_KEY = "timetracker_calendar_id"
+const CALENDAR_NAME = "Timely time tracker"
+const CALENDAR_ID_KEY = "timely_calendar_id"
 
 function headers(token: string) {
   return {
