@@ -67,6 +67,11 @@ export function Timer() {
   }, [activeEntry, entries, setDescription, setHourlyRate, setActiveStartTime])
 
   useEffect(() => {
+    const link = document.querySelector<HTMLLinkElement>("link[rel='icon']")
+    if (link) link.href = activeEntry ? "/clock-active.png" : "/clock-inactive.png"
+  }, [activeEntry])
+
+  useEffect(() => {
     if (activeEntry) {
       const tick = () => setElapsed(formatDuration(activeEntry.start_time, null))
       tick()
