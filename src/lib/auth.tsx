@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { clearCalendarCache, getOrCreateCalendar } from "./google-calendar"
 
 const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string
+const TOKEN_KEY = "timetracker_access_token"
 
 interface GoogleUser {
   email: string
@@ -37,6 +38,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode }) {
 
   const handleToken = useCallback(async (accessToken: string) => {
     setToken(accessToken)
+    localStorage.setItem(TOKEN_KEY, accessToken)
     try {
       const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -49,6 +51,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode }) {
     } catch {
       setToken(null)
       setUser(null)
+      localStorage.removeItem(TOKEN_KEY)
     } finally {
       setLoading(false)
     }
@@ -63,8 +66,13 @@ function AuthProviderInner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (initRef.current) return
     initRef.current = true
-    setLoading(false)
-  }, [])
+    const saved = localStorage.getItem(TOKEN_KEY)
+    if (saved) {
+      handleToken(saved)
+    } else {
+      setLoading(false)
+    }
+  }, [handleToken])
 
   const signIn = useCallback(() => {
     setLoading(true)
@@ -81,6 +89,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode }) {
     setUser(null)
     setToken(null)
     setCalendarId(null)
+    localStorage.removeItem(TOKEN_KEY)
     clearCalendarCache()
   }, [token])
 
