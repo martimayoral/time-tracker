@@ -135,7 +135,7 @@ export const DateRangePicker: FC<DateRangePickerProps> = ({
     from: getDateAdjustedForTimezone(initialDateFrom),
     to: initialDateTo ? getDateAdjustedForTimezone(initialDateTo) : getDateAdjustedForTimezone(initialDateFrom),
   })
-  const openedRangeRef = useRef<DateRange | undefined>()
+  const openedRangeRef = useRef<DateRange | undefined>(undefined)
   const [selectedPreset, setSelectedPreset] = useState<string | undefined>(undefined)
   const [isSmallScreen, setIsSmallScreen] = useState(typeof window !== "undefined" ? window.innerWidth < 960 : false)
 

@@ -24,7 +24,8 @@
     "react": "^19.2.7",
     "react-day-picker": "^10.0.1",
     "react-dom": "^19.2.7",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "zustand": "^5.0.14"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm check --staged --no-errors-on-unmatched"
