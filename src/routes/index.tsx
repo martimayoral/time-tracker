@@ -94,6 +94,11 @@ function Timer() {
         setDescription(running.description)
         setHourlyRate(running.hourly_rate ? String(running.hourly_rate) : "")
         setActiveStartTime(formatTimeValue(running.start_time))
+      } else {
+        const lastCompleted = data.find((e) => e.end_time)
+        if (lastCompleted?.hourly_rate) {
+          setHourlyRate(String(lastCompleted.hourly_rate))
+        }
       }
     } catch (err) {
       console.error("Failed to load entries:", err)
@@ -150,7 +155,7 @@ function Timer() {
       })
       setActiveEntry(null)
       setDescription("")
-      setHourlyRate("")
+      setHourlyRate(updated.hourly_rate ? String(updated.hourly_rate) : "")
       setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))
     } catch (err) {
       console.error("Failed to stop timer:", err)
@@ -188,7 +193,7 @@ function Timer() {
   return (
     <div className="flex flex-col gap-6">
       <Card>
-        <CardContent className="flex flex-col gap-3 pt-4">
+        <CardContent className="flex flex-col gap-3">
           <div className="flex gap-2">
             <Input
               placeholder="What are you working on?"
