@@ -108,8 +108,13 @@ function Timer() {
   }, [activeEntry])
 
   async function handleStart() {
-    const trimmed = description.trim()
-    if (!trimmed) return
+    let trimmed = description.trim()
+    if (!trimmed) {
+      const lastCompleted = entries.find((e) => e.end_time)
+      if (!lastCompleted) return
+      trimmed = lastCompleted.description
+      setDescription(trimmed)
+    }
     try {
       const entry = await createTimeEntry({
         description: trimmed,
@@ -183,7 +188,7 @@ function Timer() {
                 Stop
               </Button>
             ) : (
-              <Button onClick={handleStart} disabled={!description.trim()} className="shrink-0 gap-1.5">
+              <Button onClick={handleStart} className="shrink-0 gap-1.5">
                 <Play className="size-3.5" />
                 Start
               </Button>
