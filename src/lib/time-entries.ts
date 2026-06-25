@@ -82,6 +82,32 @@ export function parseDurationToMs(duration: string): number | null {
   return (hours * 60 + minutes) * 60000
 }
 
+export function parseTimeOfDay(input: string): { hours: number; minutes: number } | null {
+  const trimmed = input.trim()
+  if (!trimmed || !/^\d+:?\d*$/.test(trimmed)) return null
+
+  let hours: number
+  let minutes: number
+
+  if (trimmed.includes(":")) {
+    const [h, m] = trimmed.split(":")
+    hours = parseInt(h || "0", 10)
+    minutes = parseInt(m || "0", 10)
+  } else if (trimmed.length <= 2) {
+    hours = parseInt(trimmed, 10)
+    minutes = 0
+  } else {
+    minutes = parseInt(trimmed.slice(-2), 10)
+    hours = parseInt(trimmed.slice(0, -2), 10)
+  }
+
+  hours += Math.floor(minutes / 60)
+  minutes = minutes % 60
+  if (hours > 23) return null
+
+  return { hours, minutes }
+}
+
 export function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 }

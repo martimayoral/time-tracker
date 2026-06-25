@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { Clock, LogOut, Moon, Play, Square, Sun, Trash2 } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 
+import { TimeInput } from "@/components/time-input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -16,6 +17,7 @@ import {
   getTimeEntries,
   groupEntriesByDay,
   parseDurationToMs,
+  parseTimeOfDay,
   type TimeEntry,
   totalDurationForDay,
   updateTimeEntry,
@@ -230,9 +232,6 @@ const formatTimeValue = (iso: string) =>
 const ghostInput =
   "h-auto border-transparent bg-transparent px-1.5 py-0.5 shadow-none transition-[border-color] duration-200 group-hover/card:border-input dark:bg-transparent"
 
-const timePickerHidden =
-  "[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:transition-opacity group-hover/card:[&::-webkit-calendar-picker-indicator]:opacity-100"
-
 function TimeEntryRow({
   entry,
   onUpdate,
@@ -254,35 +253,47 @@ function TimeEntryRow({
     setDuration(formatDurationEditable(entry.start_time, entry.end_time))
   }, [entry.start_time, entry.end_time, entry.description])
 
-  const saveChanges = async () => {
-    const updates: Parameters<typeof updateTimeEntry>[1] = {}
+  const saveDescription = async () => {
     const trimmed = desc.trim()
     if (!trimmed) {
       setDesc(entry.description)
       return
     }
-    if (trimmed !== entry.description) updates.description = trimmed
-
-    const origStart = formatTimeValue(entry.start_time)
-    if (startTime && startTime !== origStart) {
-      const d = new Date(entry.start_time)
-      const [h, m] = startTime.split(":").map(Number)
-      d.setHours(h, m, 0, 0)
-      updates.start_time = d.toISOString()
+    if (trimmed !== entry.description) {
+      await onUpdate(entry.id, { description: trimmed })
     }
+  }
 
-    if (entry.end_time && endTime) {
-      const origEnd = formatTimeValue(entry.end_time)
-      if (endTime !== origEnd) {
-        const d = new Date(entry.end_time)
-        const [h, m] = endTime.split(":").map(Number)
-        d.setHours(h, m, 0, 0)
-        updates.end_time = d.toISOString()
-      }
+  const saveStartTime = async () => {
+    const parsed = parseTimeOfDay(startTime)
+    if (!parsed) {
+      setStartTime(formatTimeValue(entry.start_time))
+      return
     }
+    const d = new Date(entry.start_time)
+    d.setHours(parsed.hours, parsed.minutes, 0, 0)
+    const newIso = d.toISOString()
+    if (newIso !== entry.start_time) {
+      await onUpdate(entry.id, { start_time: newIso })
+    } else {
+      setStartTime(formatTimeValue(entry.start_time))
+    }
+  }
 
-    if (Object.keys(updates).length > 0) {
-      await onUpdate(entry.id, updates)
+  const saveEndTime = async () => {
+    if (!entry.end_time) return
+    const parsed = parseTimeOfDay(endTime)
+    if (!parsed) {
+      setEndTime(formatTimeValue(entry.end_time))
+      return
+    }
+    const d = new Date(entry.end_time)
+    d.setHours(parsed.hours, parsed.minutes, 0, 0)
+    const newIso = d.toISOString()
+    if (newIso !== entry.end_time) {
+      await onUpdate(entry.id, { end_time: newIso })
+    } else {
+      setEndTime(formatTimeValue(entry.end_time))
     }
   }
 
@@ -306,28 +317,26 @@ function TimeEntryRow({
           <Input
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
-            onBlur={saveChanges}
+            onBlur={saveDescription}
             onKeyDown={(e) => {
               if (e.key === "Enter") e.currentTarget.blur()
             }}
             className={cn("truncate font-medium", ghostInput)}
           />
           <div className="flex items-center gap-1">
-            <Input
-              type="time"
+            <TimeInput
               value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              onBlur={saveChanges}
-              className={cn("w-auto text-xs text-muted-foreground", ghostInput, timePickerHidden)}
+              onValueChange={setStartTime}
+              onSave={saveStartTime}
+              className={cn("w-13 text-xs text-muted-foreground", ghostInput)}
             />
             <span className="text-xs text-muted-foreground">–</span>
             {entry.end_time ? (
-              <Input
-                type="time"
+              <TimeInput
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                onBlur={saveChanges}
-                className={cn("w-auto text-xs text-muted-foreground", ghostInput, timePickerHidden)}
+                onValueChange={setEndTime}
+                onSave={saveEndTime}
+                className={cn("w-13 text-xs text-muted-foreground", ghostInput)}
               />
             ) : (
               <span className="text-xs text-muted-foreground">running</span>
@@ -336,14 +345,10 @@ function TimeEntryRow({
         </div>
         <div className="flex items-center gap-1">
           {entry.end_time ? (
-            <Input
+            <TimeInput
               value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              onFocus={(e) => e.target.select()}
-              onBlur={saveDuration}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") e.currentTarget.blur()
-              }}
+              onValueChange={setDuration}
+              onSave={saveDuration}
               className={cn("w-16 shrink-0 text-right font-mono text-sm", ghostInput)}
             />
           ) : (
