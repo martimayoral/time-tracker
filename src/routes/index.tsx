@@ -1,10 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { Clock, LogOut, Moon, Play, Square, Sun, Trash2 } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { TimeInput } from "@/components/time-input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { DateRangePicker } from "@/components/ui/date-range-picker"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/lib/auth"
 import { useCreateEntry, useDeleteEntry, useTimeEntries, useUpdateEntry } from "@/lib/queries"
@@ -71,6 +72,15 @@ const formatTimeValue = (iso: string) =>
 const ghostInput =
   "h-auto border-transparent bg-transparent px-1.5 py-0.5 shadow-none transition-[border-color] duration-200 group-hover/card:border-input dark:bg-transparent"
 
+function getDefaultDateRange() {
+  const now = new Date()
+  const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29)
+  from.setHours(0, 0, 0, 0)
+  const to = new Date(now)
+  to.setHours(23, 59, 59, 999)
+  return { from, to }
+}
+
 function Timer() {
   const { data: entries = [], isLoading: loadingEntries } = useTimeEntries()
   const createEntry = useCreateEntry()
@@ -83,6 +93,7 @@ function Timer() {
   const [hourlyRate, setHourlyRate] = useState("")
   const [elapsed, setElapsed] = useState("")
   const [activeStartTime, setActiveStartTime] = useState("")
+  const [dateRange, setDateRange] = useState(getDefaultDateRange)
   const prevActiveRef = useRef<TimeEntry | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -153,7 +164,16 @@ function Timer() {
     }
   }
 
-  const grouped = groupEntriesByDay(entries)
+  const filteredEntries = useMemo(() => {
+    const fromMs = dateRange.from.getTime()
+    const toMs = dateRange.to.getTime()
+    return entries.filter((e) => {
+      const t = new Date(e.start_time).getTime()
+      return t >= fromMs && t <= toMs
+    })
+  }, [entries, dateRange])
+
+  const grouped = groupEntriesByDay(filteredEntries)
 
   return (
     <div className="flex flex-col gap-6">
@@ -265,6 +285,21 @@ function Timer() {
           )}
         </CardContent>
       </Card>
+
+      <div className="flex items-center justify-between">
+        <DateRangePicker
+          initialDateFrom={dateRange.from}
+          initialDateTo={dateRange.to}
+          onUpdate={({ range }) => {
+            const from = new Date(range.from)
+            from.setHours(0, 0, 0, 0)
+            const to = new Date(range.to ?? range.from)
+            to.setHours(23, 59, 59, 999)
+            setDateRange({ from, to })
+          }}
+          align="start"
+        />
+      </div>
 
       {loadingEntries ? (
         <p className="text-center text-sm text-muted-foreground">Loading entries...</p>
