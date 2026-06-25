@@ -20,6 +20,7 @@ import {
   parseTimeOfDay,
   type TimeEntry,
   totalDurationForDay,
+  totalEarningsForDay,
   updateTimeEntry,
 } from "@/lib/time-entries"
 import { cn } from "@/lib/utils"
@@ -67,11 +68,19 @@ function Home() {
   )
 }
 
+const formatTimeValue = (iso: string) =>
+  new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })
+
+const ghostInput =
+  "h-auto border-transparent bg-transparent px-1.5 py-0.5 shadow-none transition-[border-color] duration-200 group-hover/card:border-input dark:bg-transparent"
+
 function Timer() {
   const [entries, setEntries] = useState<TimeEntry[]>([])
   const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null)
   const [description, setDescription] = useState("")
+  const [hourlyRate, setHourlyRate] = useState("")
   const [elapsed, setElapsed] = useState("")
+  const [activeStartTime, setActiveStartTime] = useState("")
   const [loadingEntries, setLoadingEntries] = useState(true)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -83,6 +92,8 @@ function Timer() {
       if (running) {
         setActiveEntry(running)
         setDescription(running.description)
+        setHourlyRate(running.hourly_rate ? String(running.hourly_rate) : "")
+        setActiveStartTime(formatTimeValue(running.start_time))
       }
     } catch (err) {
       console.error("Failed to load entries:", err)
@@ -116,11 +127,15 @@ function Timer() {
       setDescription(trimmed)
     }
     try {
+      const parsedRate = parseFloat(hourlyRate)
+      const startIso = new Date().toISOString()
       const entry = await createTimeEntry({
         description: trimmed,
-        start_time: new Date().toISOString(),
+        start_time: startIso,
+        hourly_rate: Number.isNaN(parsedRate) ? undefined : parsedRate,
       })
       setActiveEntry(entry)
+      setActiveStartTime(formatTimeValue(startIso))
       setEntries((prev) => [entry, ...prev])
     } catch (err) {
       console.error("Failed to start timer:", err)
@@ -135,6 +150,7 @@ function Timer() {
       })
       setActiveEntry(null)
       setDescription("")
+      setHourlyRate("")
       setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))
     } catch (err) {
       console.error("Failed to stop timer:", err)
@@ -160,6 +176,7 @@ function Timer() {
       setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))
       if (activeEntry?.id === id) {
         setActiveEntry(updated)
+        setActiveStartTime(formatTimeValue(updated.start_time))
       }
     } catch (err) {
       console.error("Failed to update entry:", err)
@@ -177,11 +194,45 @@ function Timer() {
               placeholder="What are you working on?"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              disabled={!!activeEntry}
+              onBlur={() => {
+                if (activeEntry && description.trim() && description.trim() !== activeEntry.description) {
+                  handleUpdate(activeEntry.id, { description: description.trim() })
+                }
+              }}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !activeEntry) handleStart()
+                if (e.key === "Enter") {
+                  if (activeEntry) e.currentTarget.blur()
+                  else handleStart()
+                }
               }}
             />
+            <div className="flex shrink-0 items-center gap-0.5">
+              <Input
+                type="number"
+                min="0"
+                step="0.5"
+                placeholder="0"
+                value={hourlyRate}
+                onChange={(e) => setHourlyRate(e.target.value)}
+                onBlur={() => {
+                  if (activeEntry) {
+                    const parsed = parseFloat(hourlyRate)
+                    const newRate = Number.isNaN(parsed) ? 0 : parsed
+                    if (newRate !== (activeEntry.hourly_rate || 0)) {
+                      handleUpdate(activeEntry.id, { hourly_rate: newRate })
+                    }
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    if (activeEntry) e.currentTarget.blur()
+                    else handleStart()
+                  }
+                }}
+                className="w-16 text-right text-sm"
+              />
+              <span className="text-xs text-muted-foreground">€/h</span>
+            </div>
             {activeEntry ? (
               <Button variant="destructive" onClick={handleStop} className="shrink-0 gap-1.5">
                 <Square className="size-3.5" />
@@ -196,11 +247,50 @@ function Timer() {
           </div>
           {activeEntry && (
             <div className="flex items-center gap-2 text-sm">
-              <span className="relative flex size-2">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-green-400 opacity-75" />
-                <span className="relative inline-flex size-2 rounded-full bg-green-500" />
-              </span>
-              <span className="font-mono text-lg font-semibold">{elapsed}</span>
+              <TimeInput
+                value={activeStartTime}
+                onValueChange={setActiveStartTime}
+                onSave={() => {
+                  const parsed = parseTimeOfDay(activeStartTime)
+                  if (!parsed) {
+                    setActiveStartTime(formatTimeValue(activeEntry.start_time))
+                    return
+                  }
+                  const d = new Date(activeEntry.start_time)
+                  d.setHours(parsed.hours, parsed.minutes, 0, 0)
+                  const newIso = d.toISOString()
+                  if (newIso !== activeEntry.start_time && d.getTime() < Date.now()) {
+                    handleUpdate(activeEntry.id, { start_time: newIso })
+                  } else {
+                    setActiveStartTime(formatTimeValue(activeEntry.start_time))
+                  }
+                }}
+                className={cn("w-14 text-muted-foreground", ghostInput, "text-base!")}
+              />
+              <div className="flex items-center gap-1">
+                {[
+                  { label: "-1h", deltaMs: 3600000 },
+                  { label: "-15m", deltaMs: 900000 },
+                  { label: "+15m", deltaMs: -900000 },
+                  { label: "+1h", deltaMs: -3600000 },
+                ].map(({ label, deltaMs }) => (
+                  <Button
+                    key={label}
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs font-mono"
+                    onClick={() => {
+                      const newStart = new Date(new Date(activeEntry.start_time).getTime() - deltaMs)
+                      if (newStart.getTime() < Date.now()) {
+                        handleUpdate(activeEntry.id, { start_time: newStart.toISOString() })
+                      }
+                    }}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+              <span className="ml-auto font-mono text-lg font-semibold">{elapsed}</span>
             </div>
           )}
         </CardContent>
@@ -215,9 +305,16 @@ function Timer() {
           <div key={day} className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold">{day}</h2>
-              <span className="text-sm font-medium text-muted-foreground">
-                Total: {totalDurationForDay(dayEntries)}
-              </span>
+              <div className="flex items-end gap-4">
+                <span className="text-sm font-medium text-muted-foreground">
+                  Total: {totalDurationForDay(dayEntries)}
+                </span>
+                {totalEarningsForDay(dayEntries) > 0 && (
+                  <span className="text-sm font-medium text-muted-foreground">
+                    {totalEarningsForDay(dayEntries).toFixed(2)} €
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex flex-col gap-2">
               {dayEntries.map((entry) => (
@@ -230,12 +327,6 @@ function Timer() {
     </div>
   )
 }
-
-const formatTimeValue = (iso: string) =>
-  new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })
-
-const ghostInput =
-  "h-auto border-transparent bg-transparent px-1.5 py-0.5 shadow-none transition-[border-color] duration-200 group-hover/card:border-input dark:bg-transparent"
 
 function TimeEntryRow({
   entry,
@@ -250,13 +341,15 @@ function TimeEntryRow({
   const [startTime, setStartTime] = useState(() => formatTimeValue(entry.start_time))
   const [endTime, setEndTime] = useState(() => (entry.end_time ? formatTimeValue(entry.end_time) : ""))
   const [duration, setDuration] = useState(() => formatDurationEditable(entry.start_time, entry.end_time))
+  const [rate, setRate] = useState(() => entry.hourly_rate || 0)
 
   useEffect(() => {
     setDesc(entry.description)
     setStartTime(formatTimeValue(entry.start_time))
     setEndTime(entry.end_time ? formatTimeValue(entry.end_time) : "")
     setDuration(formatDurationEditable(entry.start_time, entry.end_time))
-  }, [entry.start_time, entry.end_time, entry.description])
+    setRate(entry.hourly_rate || 0)
+  }, [entry.start_time, entry.end_time, entry.description, entry.hourly_rate])
 
   const saveDescription = async () => {
     const trimmed = desc.trim()
@@ -302,6 +395,12 @@ function TimeEntryRow({
     }
   }
 
+  const saveRate = async () => {
+    if (rate !== (entry.hourly_rate || 0)) {
+      await onUpdate(entry.id, { hourly_rate: rate })
+    }
+  }
+
   const saveDuration = async () => {
     const ms = parseDurationToMs(duration)
     if (ms == null || !entry.end_time) {
@@ -317,7 +416,7 @@ function TimeEntryRow({
 
   return (
     <Card size="sm">
-      <CardContent className="flex items-center justify-between gap-3 py-2">
+      <CardContent className="flex items-start justify-between gap-3 py-2">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <Input
             value={desc}
@@ -346,29 +445,64 @@ function TimeEntryRow({
             ) : (
               <span className="text-xs text-muted-foreground">running</span>
             )}
+            <div className="flex items-center gap-0.5">
+              <Input
+                type="number"
+                min="0"
+                step="0.5"
+                value={rate || ""}
+                onChange={(e) => {
+                  const num = parseFloat(e.target.value)
+                  setRate(Number.isNaN(num) ? 0 : num)
+                }}
+                onBlur={saveRate}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur()
+                }}
+                placeholder="0"
+                /* hide number input arrows */
+                className={cn("w-14 shrink-0 text-right text-xs", ghostInput)}
+              />
+              <span className="text-xs text-muted-foreground">€/h</span>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-1">
-          {entry.end_time ? (
-            <TimeInput
-              value={duration}
-              onValueChange={setDuration}
-              onSave={saveDuration}
-              className={cn("w-16 shrink-0 text-right font-mono text-sm", ghostInput)}
-            />
-          ) : (
-            <Input
-              readOnly
-              tabIndex={-1}
-              value={formatDuration(entry.start_time, entry.end_time)}
-              className={cn(
-                "w-auto shrink-0 cursor-default text-right font-mono text-sm",
-                ghostInput,
-                "focus-visible:border-transparent focus-visible:ring-0"
-              )}
-            />
-          )}
-          <Button size="icon-xs" variant="ghost" onClick={() => onDelete(entry.id)} aria-label="Delete entry">
+          <div className="flex flex-col items-end">
+            {entry.end_time ? (
+              <TimeInput
+                value={duration}
+                onValueChange={setDuration}
+                onSave={saveDuration}
+                className={cn("w-16 shrink-0 text-right font-mono text-sm", ghostInput)}
+              />
+            ) : (
+              <Input
+                readOnly
+                tabIndex={-1}
+                value={formatDuration(entry.start_time, entry.end_time)}
+                className={cn(
+                  "w-auto shrink-0 cursor-default text-right font-mono text-sm",
+                  ghostInput,
+                  "focus-visible:border-transparent focus-visible:ring-0"
+                )}
+              />
+            )}
+            <span className={cn("px-1.5 text-xs text-muted-foreground", rate <= 0 && "invisible")}>
+              {(
+                ((new Date(entry.end_time || new Date()).getTime() - new Date(entry.start_time).getTime()) / 3600000) *
+                (rate || 0)
+              ).toFixed(2)}{" "}
+              €
+            </span>
+          </div>
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            onClick={() => onDelete(entry.id)}
+            aria-label="Delete entry"
+            className="self-center"
+          >
             <Trash2 className="size-3.5" />
           </Button>
         </div>

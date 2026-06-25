@@ -6,6 +6,7 @@ export interface TimeEntry {
   description: string
   start_time: string
   end_time: string | null
+  hourly_rate: number
   created_at: string
 }
 
@@ -16,7 +17,12 @@ export async function getTimeEntries() {
   return data as TimeEntry[]
 }
 
-export async function createTimeEntry(entry: { description: string; start_time: string; end_time?: string }) {
+export async function createTimeEntry(entry: {
+  description: string
+  start_time: string
+  end_time?: string
+  hourly_rate?: number
+}) {
   const { data, error } = await supabase.from("time_entries").insert(entry).select().single()
 
   if (error) throw error
@@ -25,7 +31,7 @@ export async function createTimeEntry(entry: { description: string; start_time: 
 
 export async function updateTimeEntry(
   id: string,
-  updates: Partial<Pick<TimeEntry, "description" | "start_time" | "end_time">>
+  updates: Partial<Pick<TimeEntry, "description" | "start_time" | "end_time" | "hourly_rate">>
 ) {
   const { data, error } = await supabase.from("time_entries").update(updates).eq("id", id).select().single()
 
@@ -128,13 +134,29 @@ export function groupEntriesByDay(entries: TimeEntry[]): Map<string, TimeEntry[]
   return groups
 }
 
-export function totalDurationForDay(entries: TimeEntry[]): string {
+export function totalMsForDay(entries: TimeEntry[]): number {
   let totalMs = 0
   for (const entry of entries) {
     const start = new Date(entry.start_time)
     const end = entry.end_time ? new Date(entry.end_time) : new Date()
     totalMs += end.getTime() - start.getTime()
   }
+  return totalMs
+}
+
+export function totalEarningsForDay(entries: TimeEntry[]): number {
+  let total = 0
+  for (const entry of entries) {
+    const start = new Date(entry.start_time)
+    const end = entry.end_time ? new Date(entry.end_time) : new Date()
+    const hours = (end.getTime() - start.getTime()) / 3600000
+    total += hours * (entry.hourly_rate || 0)
+  }
+  return total
+}
+
+export function totalDurationForDay(entries: TimeEntry[]): string {
+  const totalMs = totalMsForDay(entries)
   const hours = Math.floor(totalMs / 3600000)
   const minutes = Math.floor((totalMs % 3600000) / 60000)
   if (hours === 0) return `${minutes}m`
