@@ -1,11 +1,20 @@
 import { create } from "zustand"
 
+import { checkPresetMatch, getPresetRange, PRESETS } from "@/components/ui/date-range-picker"
+
+const TIMEFRAME_KEY = "timeframe-preset"
+
 interface DateRange {
   from: Date
   to: Date
 }
 
 function getDefaultDateRange(): DateRange {
+  const saved = localStorage.getItem(TIMEFRAME_KEY)
+  if (saved && PRESETS.some((p) => p.name === saved)) {
+    const range = getPresetRange(saved)
+    return { from: range.from, to: range.to ?? range.from }
+  }
   const now = new Date()
   const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29)
   from.setHours(0, 0, 0, 0)
@@ -37,5 +46,13 @@ export const useTimerStore = create<TimerState>((set) => ({
   setHourlyRate: (hourlyRate) => set({ hourlyRate }),
   setElapsed: (elapsed) => set({ elapsed }),
   setActiveStartTime: (activeStartTime) => set({ activeStartTime }),
-  setDateRange: (dateRange) => set({ dateRange }),
+  setDateRange: (dateRange) => {
+    const preset = checkPresetMatch({ from: dateRange.from, to: dateRange.to })
+    if (preset) {
+      localStorage.setItem(TIMEFRAME_KEY, preset)
+    } else {
+      localStorage.removeItem(TIMEFRAME_KEY)
+    }
+    set({ dateRange })
+  },
 }))

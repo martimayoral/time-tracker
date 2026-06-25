@@ -26,7 +26,7 @@ interface Preset {
   label: string
 }
 
-const PRESETS: Preset[] = [
+export const PRESETS: Preset[] = [
   { name: "today", label: "Today" },
   { name: "yesterday", label: "Yesterday" },
   { name: "last7", label: "Last 7 days" },
@@ -49,7 +49,7 @@ const getDateAdjustedForTimezone = (dateInput: Date | string): Date => {
   return dateInput
 }
 
-function getPresetRange(presetName: string): DateRange {
+export function getPresetRange(presetName: string): DateRange {
   const from = new Date()
   const to = new Date()
   const first = from.getDate() - from.getDay()
@@ -107,7 +107,7 @@ function getPresetRange(presetName: string): DateRange {
   return { from, to }
 }
 
-function checkPresetMatch(range: DateRange): string | undefined {
+export function checkPresetMatch(range: DateRange): string | undefined {
   for (const preset of PRESETS) {
     const presetRange = getPresetRange(preset.name)
     const nFrom = new Date(range.from)
