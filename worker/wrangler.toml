@@ -1,0 +1,15 @@
+name = "time-tracker-auth"
+main = "src/index.ts"
+compatibility_date = "2025-06-01"
+
+[vars]
+ALLOWED_ORIGINS = "*"
+
+# For local dev, create a .dev.vars file with:
+#   GOOGLE_CLIENT_ID=your-client-id
+#   GOOGLE_CLIENT_SECRET=your-client-secret
+#
+# For production, set secrets:
+#   wrangler secret put GOOGLE_CLIENT_ID
+#   wrangler secret put GOOGLE_CLIENT_SECRET
+#   wrangler secret put ALLOWED_ORIGINS
