@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { Clock, Moon, Sun } from "lucide-react"
 import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -36,10 +36,20 @@ function LoginPage() {
           </div>
           <CardDescription>Sign in with your Google account to start tracking time</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-3">
           <Button onClick={signIn} disabled={loading} className="w-full">
             {loading ? "Loading..." : "Sign in with Google"}
           </Button>
+          <p className="text-center text-xs text-muted-foreground">
+            By signing in, you agree to our{" "}
+            <Link to="/terms" className="underline hover:text-foreground">
+              Terms of Use
+            </Link>{" "}
+            and{" "}
+            <Link to="/privacy" className="underline hover:text-foreground">
+              Privacy Policy
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>
