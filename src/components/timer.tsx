@@ -1,4 +1,4 @@
-import { Play, Square } from "lucide-react"
+import { Download, Play, Square } from "lucide-react"
 import { useEffect, useMemo, useRef } from "react"
 
 import { TimeEntryRow } from "@/components/time-entry-row"
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { DateRangePicker } from "@/components/ui/date-range-picker"
 import { Input } from "@/components/ui/input"
+import { exportToPdf } from "@/lib/export-pdf"
 import { useCreateEntry, useDeleteEntry, useTimeEntries, useUpdateEntry } from "@/lib/queries"
 import {
   formatDuration,
@@ -255,6 +256,17 @@ export function Timer() {
           }}
           align="start"
         />
+        {filteredEntries.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => exportToPdf(filteredEntries, dateRange.from, dateRange.to)}
+          >
+            <Download className="size-3.5" />
+            Export PDF
+          </Button>
+        )}
       </div>
 
       {loadingEntries ? (
