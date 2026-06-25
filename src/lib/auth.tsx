@@ -1,39 +1,98 @@
-import type { Session, User } from "@supabase/supabase-js"
-import { createContext, useContext, useEffect, useState } from "react"
-import { supabase } from "./supabase"
+import { GoogleOAuthProvider, useGoogleLogin } from "@react-oauth/google"
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
+import { clearCalendarCache, getOrCreateCalendar } from "./google-calendar"
 
-interface AuthContext {
-  user: User | null
-  session: Session | null
-  loading: boolean
+const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string
+
+interface GoogleUser {
+  email: string
+  name: string
+  picture: string
 }
 
-const AuthContext = createContext<AuthContext>({
+interface AuthContextValue {
+  user: GoogleUser | null
+  token: string | null
+  calendarId: string | null
+  loading: boolean
+  signIn: () => void
+  signOut: () => void
+}
+
+const AuthContext = createContext<AuthContextValue>({
   user: null,
-  session: null,
+  token: null,
+  calendarId: null,
   loading: true,
+  signIn: () => {},
+  signOut: () => {},
 })
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null)
+function AuthProviderInner({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<GoogleUser | null>(null)
+  const [token, setToken] = useState<string | null>(null)
+  const [calendarId, setCalendarId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const initRef = useRef(false)
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
+  const handleToken = useCallback(async (accessToken: string) => {
+    setToken(accessToken)
+    try {
+      const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      if (!res.ok) throw new Error("Failed to fetch user info")
+      const info = await res.json()
+      setUser({ email: info.email, name: info.name, picture: info.picture })
+      const calId = await getOrCreateCalendar(accessToken)
+      setCalendarId(calId)
+    } catch {
+      setToken(null)
+      setUser(null)
+    } finally {
       setLoading(false)
-    })
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-    })
-
-    return () => subscription.unsubscribe()
+    }
   }, [])
 
-  return <AuthContext value={{ user: session?.user ?? null, session, loading }}>{children}</AuthContext>
+  const login = useGoogleLogin({
+    onSuccess: (response) => handleToken(response.access_token),
+    onError: () => setLoading(false),
+    scope: "https://www.googleapis.com/auth/calendar",
+  })
+
+  useEffect(() => {
+    if (initRef.current) return
+    initRef.current = true
+    setLoading(false)
+  }, [])
+
+  const signIn = useCallback(() => {
+    setLoading(true)
+    login()
+  }, [login])
+
+  const signOut = useCallback(() => {
+    if (token) {
+      fetch(`https://oauth2.googleapis.com/revoke?token=${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      }).catch(() => {})
+    }
+    setUser(null)
+    setToken(null)
+    setCalendarId(null)
+    clearCalendarCache()
+  }, [token])
+
+  return <AuthContext value={{ user, token, calendarId, loading, signIn, signOut }}>{children}</AuthContext>
+}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  return (
+    <GoogleOAuthProvider clientId={clientId}>
+      <AuthProviderInner>{children}</AuthProviderInner>
+    </GoogleOAuthProvider>
+  )
 }
 
 export function useAuth() {

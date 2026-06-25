@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/lib/auth"
-import { supabase } from "@/lib/supabase"
 import { useTheme } from "@/lib/theme"
 import {
   createTimeEntry,
@@ -30,7 +29,7 @@ export const Route = createFileRoute("/")({
 })
 
 function Home() {
-  const { user, loading } = useAuth()
+  const { user, loading, signOut } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
 
@@ -58,7 +57,7 @@ function Home() {
           <Button variant="ghost" size="icon-xs" onClick={toggleTheme} aria-label="Toggle theme">
             {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
           </Button>
-          <Button variant="ghost" size="icon-xs" onClick={() => supabase.auth.signOut()} aria-label="Sign out">
+          <Button variant="ghost" size="icon-xs" onClick={signOut} aria-label="Sign out">
             <LogOut className="size-4" />
           </Button>
         </div>
@@ -75,6 +74,7 @@ const ghostInput =
   "h-auto border-transparent bg-transparent px-1.5 py-0.5 shadow-none transition-[border-color] duration-200 group-hover/card:border-input dark:bg-transparent"
 
 function Timer() {
+  const { token, calendarId } = useAuth()
   const [entries, setEntries] = useState<TimeEntry[]>([])
   const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null)
   const [description, setDescription] = useState("")
@@ -85,8 +85,9 @@ function Timer() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const loadEntries = useCallback(async () => {
+    if (!token || !calendarId) return
     try {
-      const data = await getTimeEntries()
+      const data = await getTimeEntries(token, calendarId)
       setEntries(data)
       const running = data.find((e) => !e.end_time)
       if (running) {
@@ -105,7 +106,7 @@ function Timer() {
     } finally {
       setLoadingEntries(false)
     }
-  }, [])
+  }, [token, calendarId])
 
   useEffect(() => {
     loadEntries()
@@ -124,6 +125,7 @@ function Timer() {
   }, [activeEntry])
 
   async function handleStart() {
+    if (!token || !calendarId) return
     let trimmed = description.trim()
     if (!trimmed) {
       const lastCompleted = entries.find((e) => e.end_time)
@@ -134,7 +136,7 @@ function Timer() {
     try {
       const parsedRate = parseFloat(hourlyRate)
       const startIso = new Date().toISOString()
-      const entry = await createTimeEntry({
+      const entry = await createTimeEntry(token, calendarId, {
         description: trimmed,
         start_time: startIso,
         hourly_rate: Number.isNaN(parsedRate) ? undefined : parsedRate,
@@ -148,9 +150,9 @@ function Timer() {
   }
 
   async function handleStop() {
-    if (!activeEntry) return
+    if (!activeEntry || !token || !calendarId) return
     try {
-      const updated = await updateTimeEntry(activeEntry.id, {
+      const updated = await updateTimeEntry(token, calendarId, activeEntry.id, {
         end_time: new Date().toISOString(),
       })
       setActiveEntry(null)
@@ -163,8 +165,9 @@ function Timer() {
   }
 
   async function handleDelete(id: string) {
+    if (!token || !calendarId) return
     try {
-      await deleteTimeEntry(id)
+      await deleteTimeEntry(token, calendarId, id)
       setEntries((prev) => prev.filter((e) => e.id !== id))
       if (activeEntry?.id === id) {
         setActiveEntry(null)
@@ -175,9 +178,10 @@ function Timer() {
     }
   }
 
-  async function handleUpdate(id: string, updates: Parameters<typeof updateTimeEntry>[1]) {
+  async function handleUpdate(id: string, updates: Parameters<typeof updateTimeEntry>[3]) {
+    if (!token || !calendarId) return
     try {
-      const updated = await updateTimeEntry(id, updates)
+      const updated = await updateTimeEntry(token, calendarId, id, updates)
       setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))
       if (activeEntry?.id === id) {
         setActiveEntry(updated)
@@ -339,7 +343,7 @@ function TimeEntryRow({
   onDelete,
 }: {
   entry: TimeEntry
-  onUpdate: (id: string, updates: Parameters<typeof updateTimeEntry>[1]) => Promise<void>
+  onUpdate: (id: string, updates: Parameters<typeof updateTimeEntry>[3]) => Promise<void>
   onDelete: (id: string) => void
 }) {
   const [desc, setDesc] = useState(entry.description)
@@ -465,7 +469,6 @@ function TimeEntryRow({
                   if (e.key === "Enter") e.currentTarget.blur()
                 }}
                 placeholder="0"
-                /* hide number input arrows */
                 className={cn("w-14 shrink-0 text-right text-xs", ghostInput)}
               />
               <span className="text-xs text-muted-foreground">€/h</span>

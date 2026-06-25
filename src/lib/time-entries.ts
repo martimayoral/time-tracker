@@ -1,47 +1,41 @@
-import { supabase } from "./supabase"
+import {
+  createTimeEntry as gcCreate,
+  deleteTimeEntry as gcDelete,
+  getTimeEntries as gcGet,
+  updateTimeEntry as gcUpdate,
+  type TimeEntry,
+} from "./google-calendar"
 
-export interface TimeEntry {
-  id: string
-  user_id: string
-  description: string
-  start_time: string
-  end_time: string | null
-  hourly_rate: number
-  created_at: string
+export type { TimeEntry }
+
+export async function getTimeEntries(token: string, calendarId: string) {
+  return gcGet(token, calendarId)
 }
 
-export async function getTimeEntries() {
-  const { data, error } = await supabase.from("time_entries").select("*").order("start_time", { ascending: false })
-
-  if (error) throw error
-  return data as TimeEntry[]
-}
-
-export async function createTimeEntry(entry: {
-  description: string
-  start_time: string
-  end_time?: string
-  hourly_rate?: number
-}) {
-  const { data, error } = await supabase.from("time_entries").insert(entry).select().single()
-
-  if (error) throw error
-  return data as TimeEntry
+export async function createTimeEntry(
+  token: string,
+  calendarId: string,
+  entry: {
+    description: string
+    start_time: string
+    end_time?: string
+    hourly_rate?: number
+  }
+) {
+  return gcCreate(token, calendarId, entry)
 }
 
 export async function updateTimeEntry(
+  token: string,
+  calendarId: string,
   id: string,
   updates: Partial<Pick<TimeEntry, "description" | "start_time" | "end_time" | "hourly_rate">>
 ) {
-  const { data, error } = await supabase.from("time_entries").update(updates).eq("id", id).select().single()
-
-  if (error) throw error
-  return data as TimeEntry
+  return gcUpdate(token, calendarId, id, updates)
 }
 
-export async function deleteTimeEntry(id: string) {
-  const { error } = await supabase.from("time_entries").delete().eq("id", id)
-  if (error) throw error
+export async function deleteTimeEntry(token: string, calendarId: string, id: string) {
+  return gcDelete(token, calendarId, id)
 }
 
 export function formatDuration(startTime: string, endTime: string | null): string {
