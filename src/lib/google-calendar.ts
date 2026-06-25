@@ -150,39 +150,97 @@ export async function createTimeEntry(
   return eventToEntry(event)
 }
 
-export async function updateTimeEntry(
+type UpdateFields = Partial<Pick<TimeEntry, "description" | "start_time" | "end_time" | "hourly_rate">>
+
+const pendingUpdates = new Map<
+  string,
+  {
+    token: string
+    calendarId: string
+    updates: UpdateFields
+    timer: ReturnType<typeof setTimeout>
+    resolve: (value: TimeEntry) => void
+    reject: (reason: unknown) => void
+    promise: Promise<TimeEntry>
+  }
+>()
+
+const DEBOUNCE_MS = 1000
+
+async function flushUpdate(id: string) {
+  const pending = pendingUpdates.get(id)
+  if (!pending) return
+  pendingUpdates.delete(id)
+
+  const { token, calendarId, updates, resolve, reject } = pending
+
+  try {
+    const existing = await request(
+      token,
+      `/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(id)}`
+    )
+
+    const merged = {
+      description: updates.description ?? existing.summary ?? "",
+      start_time: updates.start_time ?? existing.start.dateTime,
+      end_time:
+        updates.end_time ??
+        (existing.extendedProperties?.private?.running === "true" ? undefined : existing.end.dateTime),
+      hourly_rate: updates.hourly_rate ?? parseFloat(existing.extendedProperties?.private?.hourlyRate || "0"),
+    }
+
+    if (updates.end_time) {
+      ;(merged as { running?: boolean }).running = false
+    }
+
+    const body = entryToEventBody(merged)
+    if (updates.end_time) {
+      body.extendedProperties.private = {
+        hourlyRate: body.extendedProperties.private.hourlyRate,
+      }
+    }
+
+    const event = await request(
+      token,
+      `/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(id)}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(body),
+      }
+    )
+    resolve(eventToEntry(event))
+  } catch (err) {
+    reject(err)
+  }
+}
+
+export function updateTimeEntry(
   token: string,
   calendarId: string,
   id: string,
-  updates: Partial<Pick<TimeEntry, "description" | "start_time" | "end_time" | "hourly_rate">>
+  updates: UpdateFields
 ): Promise<TimeEntry> {
-  const existing = await request(token, `/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(id)}`)
+  const existing = pendingUpdates.get(id)
 
-  const merged = {
-    description: updates.description ?? existing.summary ?? "",
-    start_time: updates.start_time ?? existing.start.dateTime,
-    end_time:
-      updates.end_time ??
-      (existing.extendedProperties?.private?.running === "true" ? undefined : existing.end.dateTime),
-    hourly_rate: updates.hourly_rate ?? parseFloat(existing.extendedProperties?.private?.hourlyRate || "0"),
+  if (existing) {
+    clearTimeout(existing.timer)
+    Object.assign(existing.updates, updates)
+    existing.token = token
+    existing.calendarId = calendarId
+    existing.timer = setTimeout(() => flushUpdate(id), DEBOUNCE_MS)
+    return existing.promise
   }
 
-  if (updates.end_time) {
-    ;(merged as { running?: boolean }).running = false
-  }
-
-  const body = entryToEventBody(merged)
-  if (updates.end_time) {
-    body.extendedProperties.private = {
-      hourlyRate: body.extendedProperties.private.hourlyRate,
-    }
-  }
-
-  const event = await request(token, `/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(id)}`, {
-    method: "PUT",
-    body: JSON.stringify(body),
+  let resolve!: (value: TimeEntry) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<TimeEntry>((res, rej) => {
+    resolve = res
+    reject = rej
   })
-  return eventToEntry(event)
+
+  const timer = setTimeout(() => flushUpdate(id), DEBOUNCE_MS)
+  pendingUpdates.set(id, { token, calendarId, updates: { ...updates }, timer, resolve, reject, promise })
+  return promise
 }
 
 export async function deleteTimeEntry(token: string, calendarId: string, id: string): Promise<void> {
