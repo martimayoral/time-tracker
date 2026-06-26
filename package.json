@@ -13,7 +13,6 @@
     "check:fix": "biome check --write . && tsc -b --noEmit"
   },
   "dependencies": {
-    "@react-oauth/google": "^0.13.5",
     "@tanstack/react-query": "^5.101.1",
     "@tanstack/react-router": "^1.170.16",
     "class-variance-authority": "^0.7.1",

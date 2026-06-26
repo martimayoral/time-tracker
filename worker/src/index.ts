@@ -59,12 +59,12 @@ export default {
     }
 
     if (url.pathname === "/auth/token") {
-      const { code } = await request.json<{ code: string }>()
-      if (!code) return json(env, request, { error: "Missing code" }, 400)
+      const { code, redirect_uri } = await request.json<{ code: string; redirect_uri: string }>()
+      if (!code || !redirect_uri) return json(env, request, { error: "Missing code or redirect_uri" }, 400)
 
       const { data, ok } = await googleToken(env, {
         code,
-        redirect_uri: "postmessage",
+        redirect_uri,
         grant_type: "authorization_code",
       })
 

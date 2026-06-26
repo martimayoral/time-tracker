@@ -1,4 +1,3 @@
-import { GoogleOAuthProvider, useGoogleLogin } from "@react-oauth/google"
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { clearCalendarCache, getOrCreateCalendar } from "./google-calendar"
 
@@ -9,6 +8,13 @@ const ACCESS_TOKEN_KEY = "timetracker_access_token"
 const REFRESH_TOKEN_KEY = "timetracker_refresh_token"
 const EXPIRY_KEY = "timetracker_token_expiry"
 const REFRESH_MARGIN_MS = 5 * 60 * 1000
+
+const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+const SCOPES = "openid email profile https://www.googleapis.com/auth/calendar"
+
+function getRedirectUri() {
+  return `${window.location.origin}/callback`
+}
 
 interface GoogleUser {
   email: string
@@ -23,6 +29,7 @@ interface AuthContextValue {
   loading: boolean
   signIn: () => void
   signOut: () => void
+  handleCallback: (code: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -32,15 +39,17 @@ const AuthContext = createContext<AuthContextValue>({
   loading: true,
   signIn: () => {},
   signOut: () => {},
+  handleCallback: async () => {},
 })
 
 async function exchangeCode(
-  code: string
+  code: string,
+  redirectUri: string
 ): Promise<{ access_token: string; refresh_token?: string; expires_in: number }> {
   const res = await fetch(`${authWorkerUrl}/auth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ code }),
+    body: JSON.stringify({ code, redirect_uri: redirectUri }),
   })
   if (!res.ok) throw new Error("Token exchange failed")
   return res.json()
@@ -56,7 +65,7 @@ async function refreshAccessToken(refreshToken: string): Promise<{ access_token:
   return res.json()
 }
 
-function AuthProviderInner({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<GoogleUser | null>(null)
   const [token, setToken] = useState<string | null>(null)
   const [calendarId, setCalendarId] = useState<string | null>(null)
@@ -127,24 +136,6 @@ function AuthProviderInner({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const login = useGoogleLogin({
-    flow: "auth-code",
-    scope: "https://www.googleapis.com/auth/calendar",
-    onSuccess: async (response) => {
-      try {
-        const data = await exchangeCode(response.code)
-        if (data.refresh_token) {
-          localStorage.setItem(REFRESH_TOKEN_KEY, data.refresh_token)
-        }
-        await setupUser(data.access_token)
-        scheduleRefresh(data.expires_in)
-      } catch {
-        setLoading(false)
-      }
-    },
-    onError: () => setLoading(false),
-  })
-
   useEffect(() => {
     if (initRef.current) return
     initRef.current = true
@@ -176,9 +167,34 @@ function AuthProviderInner({ children }: { children: React.ReactNode }) {
   }, [setupUser, scheduleRefresh, clearAuth])
 
   const signIn = useCallback(() => {
-    setLoading(true)
-    login()
-  }, [login])
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: getRedirectUri(),
+      response_type: "code",
+      scope: SCOPES,
+      access_type: "offline",
+      prompt: "consent",
+    })
+    window.location.href = `${GOOGLE_AUTH_URL}?${params.toString()}`
+  }, [])
+
+  const handleCallback = useCallback(
+    async (code: string) => {
+      setLoading(true)
+      try {
+        const data = await exchangeCode(code, getRedirectUri())
+        if (data.refresh_token) {
+          localStorage.setItem(REFRESH_TOKEN_KEY, data.refresh_token)
+        }
+        await setupUser(data.access_token)
+        scheduleRefresh(data.expires_in)
+      } catch {
+        clearAuth()
+        setLoading(false)
+      }
+    },
+    [setupUser, scheduleRefresh, clearAuth]
+  )
 
   const signOut = useCallback(() => {
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current)
@@ -191,14 +207,8 @@ function AuthProviderInner({ children }: { children: React.ReactNode }) {
     clearAuth()
   }, [token, clearAuth])
 
-  return <AuthContext value={{ user, token, calendarId, loading, signIn, signOut }}>{children}</AuthContext>
-}
-
-export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
-    <GoogleOAuthProvider clientId={clientId}>
-      <AuthProviderInner>{children}</AuthProviderInner>
-    </GoogleOAuthProvider>
+    <AuthContext value={{ user, token, calendarId, loading, signIn, signOut, handleCallback }}>{children}</AuthContext>
   )
 }
 
