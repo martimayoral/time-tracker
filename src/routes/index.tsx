@@ -55,9 +55,9 @@ function Home() {
           <Clock className="size-10 text-primary" />
           <h1 className="text-3xl font-bold tracking-tight">Timely - time tracker app</h1>
           <p className="max-w-md text-muted-foreground">
-            Timely is a simple time tracking application that helps freelancers and professionals log work hours, manage
-            tasks, and generate reports. Track your time with a one-click timer, set hourly rates, and export detailed
-            reports as PDF.
+            Timely is a free time tracking application that links directly to your Google Calendar. Log work hours,
+            manage tasks, and generate reports — all synced to a dedicated calendar in your Google account. Track your
+            time with a one-click timer, set hourly rates, and export detailed reports as PDF.
           </p>
         </div>
 
