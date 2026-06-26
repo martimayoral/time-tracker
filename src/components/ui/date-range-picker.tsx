@@ -187,7 +187,9 @@ export const DateRangePicker: FC<DateRangePickerProps> = ({
       <PopoverTrigger asChild>
         <Button size="lg" variant="outline">
           <div className="py-1 text-right">
-            {`${formatDate(range.from, locale)}${range.to != null ? ` - ${formatDate(range.to, locale)}` : ""}`}
+            {selectedPreset
+              ? PRESETS.find((p) => p.name === selectedPreset)?.label
+              : `${formatDate(range.from, locale)}${range.to != null ? ` - ${formatDate(range.to, locale)}` : ""}`}
           </div>
           <div className="-mr-2 scale-125 pl-1 opacity-60">
             {isOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
