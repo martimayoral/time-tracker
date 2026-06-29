@@ -48,13 +48,20 @@ export function Timer() {
 
   const prevActiveRef = useRef<TimeEntry | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const focusedField = useRef<string | null>(null)
 
   useEffect(() => {
     const prev = prevActiveRef.current
     if (activeEntry && activeEntry.id !== prev?.id) {
-      setDescription(activeEntry.description)
-      setHourlyRate(activeEntry.hourly_rate ? String(activeEntry.hourly_rate) : "")
-      setActiveStartTime(formatTimeValue(activeEntry.start_time))
+      if (focusedField.current !== "description") setDescription(activeEntry.description)
+      if (focusedField.current !== "hourlyRate")
+        setHourlyRate(activeEntry.hourly_rate ? String(activeEntry.hourly_rate) : "")
+      if (focusedField.current !== "activeStartTime") setActiveStartTime(formatTimeValue(activeEntry.start_time))
+    } else if (activeEntry) {
+      if (focusedField.current !== "description") setDescription(activeEntry.description)
+      if (focusedField.current !== "hourlyRate")
+        setHourlyRate(activeEntry.hourly_rate ? String(activeEntry.hourly_rate) : "")
+      if (focusedField.current !== "activeStartTime") setActiveStartTime(formatTimeValue(activeEntry.start_time))
     } else if (!activeEntry && prev) {
       setDescription("")
       if (prev.hourly_rate) setHourlyRate(String(prev.hourly_rate))
@@ -141,7 +148,11 @@ export function Timer() {
               placeholder="What are you working on?"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              onFocus={() => {
+                focusedField.current = "description"
+              }}
               onBlur={() => {
+                focusedField.current = null
                 if (activeEntry && description.trim() && description.trim() !== activeEntry.description) {
                   handleUpdate(activeEntry.id, { description: description.trim() })
                 }
@@ -161,7 +172,11 @@ export function Timer() {
                 placeholder="0"
                 value={hourlyRate}
                 onChange={(e) => setHourlyRate(e.target.value)}
+                onFocus={() => {
+                  focusedField.current = "hourlyRate"
+                }}
                 onBlur={() => {
+                  focusedField.current = null
                   if (activeEntry) {
                     const parsed = parseFloat(hourlyRate)
                     const newRate = Number.isNaN(parsed) ? 0 : parsed
@@ -194,26 +209,35 @@ export function Timer() {
           </div>
           {activeEntry && (
             <div className="flex items-center gap-2 text-sm">
-              <TimeInput
-                value={activeStartTime}
-                onValueChange={setActiveStartTime}
-                onSave={() => {
-                  const parsed = parseTimeOfDay(activeStartTime)
-                  if (!parsed) {
-                    setActiveStartTime(formatTimeValue(activeEntry.start_time))
-                    return
-                  }
-                  const d = new Date(activeEntry.start_time)
-                  d.setHours(parsed.hours, parsed.minutes, 0, 0)
-                  const newIso = d.toISOString()
-                  if (newIso !== activeEntry.start_time && d.getTime() < Date.now()) {
-                    handleUpdate(activeEntry.id, { start_time: newIso })
-                  } else {
-                    setActiveStartTime(formatTimeValue(activeEntry.start_time))
-                  }
+              <span
+                onFocus={() => {
+                  focusedField.current = "activeStartTime"
                 }}
-                className={cn("w-14 text-muted-foreground", ghostInput, "text-base!")}
-              />
+                onBlur={() => {
+                  focusedField.current = null
+                }}
+              >
+                <TimeInput
+                  value={activeStartTime}
+                  onValueChange={setActiveStartTime}
+                  onSave={() => {
+                    const parsed = parseTimeOfDay(activeStartTime)
+                    if (!parsed) {
+                      setActiveStartTime(formatTimeValue(activeEntry.start_time))
+                      return
+                    }
+                    const d = new Date(activeEntry.start_time)
+                    d.setHours(parsed.hours, parsed.minutes, 0, 0)
+                    const newIso = d.toISOString()
+                    if (newIso !== activeEntry.start_time && d.getTime() < Date.now()) {
+                      handleUpdate(activeEntry.id, { start_time: newIso })
+                    } else {
+                      setActiveStartTime(formatTimeValue(activeEntry.start_time))
+                    }
+                  }}
+                  className={cn("w-14 text-muted-foreground", ghostInput, "text-base!")}
+                />
+              </span>
               <div className="flex items-center gap-1">
                 {[
                   { label: "-1h", deltaMs: 3600000 },

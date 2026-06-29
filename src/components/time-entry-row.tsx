@@ -1,5 +1,5 @@
 import { Trash2 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { TimeInput } from "@/components/time-input"
 import { Button } from "@/components/ui/button"
@@ -35,13 +35,14 @@ export function TimeEntryRow({
   const [endTime, setEndTime] = useState(() => (entry.end_time ? formatTimeValue(entry.end_time) : ""))
   const [duration, setDuration] = useState(() => formatDurationEditable(entry.start_time, entry.end_time))
   const [rate, setRate] = useState(() => entry.hourly_rate || 0)
+  const focusedField = useRef<string | null>(null)
 
   useEffect(() => {
-    setDesc(entry.description)
-    setStartTime(formatTimeValue(entry.start_time))
-    setEndTime(entry.end_time ? formatTimeValue(entry.end_time) : "")
-    setDuration(formatDurationEditable(entry.start_time, entry.end_time))
-    setRate(entry.hourly_rate || 0)
+    if (focusedField.current !== "desc") setDesc(entry.description)
+    if (focusedField.current !== "startTime") setStartTime(formatTimeValue(entry.start_time))
+    if (focusedField.current !== "endTime") setEndTime(entry.end_time ? formatTimeValue(entry.end_time) : "")
+    if (focusedField.current !== "duration") setDuration(formatDurationEditable(entry.start_time, entry.end_time))
+    if (focusedField.current !== "rate") setRate(entry.hourly_rate || 0)
   }, [entry.start_time, entry.end_time, entry.description, entry.hourly_rate])
 
   const saveDescription = () => {
@@ -114,27 +115,51 @@ export function TimeEntryRow({
           <Input
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
-            onBlur={saveDescription}
+            onFocus={() => {
+              focusedField.current = "desc"
+            }}
+            onBlur={() => {
+              focusedField.current = null
+              saveDescription()
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter") e.currentTarget.blur()
             }}
             className={cn("truncate font-medium", ghostInput)}
           />
           <div className="flex items-center gap-1">
-            <TimeInput
-              value={startTime}
-              onValueChange={setStartTime}
-              onSave={saveStartTime}
-              className={cn("w-13 text-xs text-muted-foreground", ghostInput)}
-            />
-            <span className="text-xs text-muted-foreground">–</span>
-            {entry.end_time ? (
+            <span
+              onFocus={() => {
+                focusedField.current = "startTime"
+              }}
+              onBlur={() => {
+                focusedField.current = null
+              }}
+            >
               <TimeInput
-                value={endTime}
-                onValueChange={setEndTime}
-                onSave={saveEndTime}
+                value={startTime}
+                onValueChange={setStartTime}
+                onSave={saveStartTime}
                 className={cn("w-13 text-xs text-muted-foreground", ghostInput)}
               />
+            </span>
+            <span className="text-xs text-muted-foreground">–</span>
+            {entry.end_time ? (
+              <span
+                onFocus={() => {
+                  focusedField.current = "endTime"
+                }}
+                onBlur={() => {
+                  focusedField.current = null
+                }}
+              >
+                <TimeInput
+                  value={endTime}
+                  onValueChange={setEndTime}
+                  onSave={saveEndTime}
+                  className={cn("w-13 text-xs text-muted-foreground", ghostInput)}
+                />
+              </span>
             ) : (
               <span className="text-xs text-muted-foreground">running</span>
             )}
@@ -148,7 +173,13 @@ export function TimeEntryRow({
                   const num = parseFloat(e.target.value)
                   setRate(Number.isNaN(num) ? 0 : num)
                 }}
-                onBlur={saveRate}
+                onFocus={() => {
+                  focusedField.current = "rate"
+                }}
+                onBlur={() => {
+                  focusedField.current = null
+                  saveRate()
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") e.currentTarget.blur()
                 }}
@@ -162,12 +193,21 @@ export function TimeEntryRow({
         <div className="flex items-center gap-1">
           <div className="flex flex-col items-end">
             {entry.end_time ? (
-              <TimeInput
-                value={duration}
-                onValueChange={setDuration}
-                onSave={saveDuration}
-                className={cn("w-16 shrink-0 text-right font-mono text-sm", ghostInput)}
-              />
+              <span
+                onFocus={() => {
+                  focusedField.current = "duration"
+                }}
+                onBlur={() => {
+                  focusedField.current = null
+                }}
+              >
+                <TimeInput
+                  value={duration}
+                  onValueChange={setDuration}
+                  onSave={saveDuration}
+                  className={cn("w-16 shrink-0 text-right font-mono text-sm", ghostInput)}
+                />
+              </span>
             ) : (
               <Input
                 readOnly
