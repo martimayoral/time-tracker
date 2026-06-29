@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input"
 type TimeInputProps = Omit<ComponentProps<typeof Input>, "onChange" | "onFocus" | "onBlur" | "onKeyDown"> & {
   onValueChange: (value: string) => void
   onSave: () => void
+  onCancel?: () => void
 }
 
-export function TimeInput({ onValueChange, onSave, ...props }: TimeInputProps) {
+export function TimeInput({ onValueChange, onSave, onCancel, ...props }: TimeInputProps) {
   return (
     <Input
       {...props}
@@ -16,6 +17,10 @@ export function TimeInput({ onValueChange, onSave, ...props }: TimeInputProps) {
       onBlur={onSave}
       onKeyDown={(e) => {
         if (e.key === "Enter") e.currentTarget.blur()
+        if (e.key === "Escape") {
+          onCancel?.()
+          e.currentTarget.blur()
+        }
       }}
     />
   )

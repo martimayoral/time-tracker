@@ -124,6 +124,10 @@ export function TimeEntryRow({
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter") e.currentTarget.blur()
+              if (e.key === "Escape") {
+                setDesc(entry.description)
+                e.currentTarget.blur()
+              }
             }}
             className={cn("truncate font-medium", ghostInput)}
           />
@@ -140,6 +144,7 @@ export function TimeEntryRow({
                 value={startTime}
                 onValueChange={setStartTime}
                 onSave={saveStartTime}
+                onCancel={() => setStartTime(formatTimeValue(entry.start_time))}
                 className={cn("w-13 text-xs text-muted-foreground", ghostInput)}
               />
             </span>
@@ -157,6 +162,7 @@ export function TimeEntryRow({
                   value={endTime}
                   onValueChange={setEndTime}
                   onSave={saveEndTime}
+                  onCancel={() => setEndTime(entry.end_time ? formatTimeValue(entry.end_time) : "")}
                   className={cn("w-13 text-xs text-muted-foreground", ghostInput)}
                 />
               </span>
@@ -182,6 +188,10 @@ export function TimeEntryRow({
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") e.currentTarget.blur()
+                  if (e.key === "Escape") {
+                    setRate(entry.hourly_rate || 0)
+                    e.currentTarget.blur()
+                  }
                 }}
                 placeholder="0"
                 className={cn("w-14 shrink-0 text-right text-xs", ghostInput)}
@@ -205,6 +215,7 @@ export function TimeEntryRow({
                   value={duration}
                   onValueChange={setDuration}
                   onSave={saveDuration}
+                  onCancel={() => setDuration(formatDurationEditable(entry.start_time, entry.end_time))}
                   className={cn("w-16 shrink-0 text-right font-mono text-sm", ghostInput)}
                 />
               </span>
