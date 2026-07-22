@@ -33,6 +33,7 @@ export const PRESETS: Preset[] = [
   { name: "last14", label: "Last 14 days" },
   { name: "last30", label: "Last 30 days" },
   { name: "thisWeek", label: "This Week" },
+  { name: "thisWeekFull", label: "This Week (Full)" },
   { name: "lastWeek", label: "Last Week" },
   { name: "thisMonth", label: "This Month" },
   { name: "lastMonth", label: "Last Month" },
@@ -83,6 +84,12 @@ export function getPresetRange(presetName: string): DateRange {
     case "thisWeek":
       from.setDate(first)
       from.setHours(0, 0, 0, 0)
+      to.setHours(23, 59, 59, 999)
+      break
+    case "thisWeekFull":
+      from.setDate(first)
+      from.setHours(0, 0, 0, 0)
+      to.setDate(first + 6)
       to.setHours(23, 59, 59, 999)
       break
     case "lastWeek":
