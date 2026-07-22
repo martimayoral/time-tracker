@@ -222,7 +222,7 @@ export const DateRangePicker: FC<DateRangePickerProps> = ({
             </div>
             {isSmallScreen && (
               <Select defaultValue={selectedPreset} onValueChange={setPreset}>
-                <SelectTrigger className="mx-auto mb-2 w-[180px]">
+                <SelectTrigger className="mx-auto mb-2 w-45">
                   <SelectValue placeholder="Select..." />
                 </SelectTrigger>
                 <SelectContent>

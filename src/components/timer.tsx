@@ -1,5 +1,5 @@
-import { Download, Play, Square } from "lucide-react"
-import { useEffect, useMemo, useRef } from "react"
+import { CalendarPlus, Download, Play, Square } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { TimeEntryRow } from "@/components/time-entry-row"
 import { TimeInput } from "@/components/time-input"
@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { DateRangePicker } from "@/components/ui/date-range-picker"
 import { Input } from "@/components/ui/input"
 import { exportToPdf } from "@/lib/export-pdf"
+import { generateDaySchedule, getWeekdaysForWeek } from "@/lib/generate-week"
 import { useCreateEntry, useDeleteEntry, useTimeEntries, useUpdateEntry } from "@/lib/queries"
 import {
   formatDuration,
@@ -34,6 +35,7 @@ export function Timer() {
   const deleteEntry = useDeleteEntry()
 
   const activeEntry = entries.find((e) => !e.end_time) ?? null
+  const [isGenerating, setIsGenerating] = useState(false)
 
   const description = useTimerStore((s) => s.description)
   const setDescription = useTimerStore((s) => s.setDescription)
@@ -125,6 +127,29 @@ export function Timer() {
     updateEntry.mutate({ id, updates })
     if (activeEntry?.id === id && updates.start_time) {
       setActiveStartTime(formatTimeValue(updates.start_time))
+    }
+  }
+
+  async function handleGenerateWeek() {
+    const weekdays = getWeekdaysForWeek(dateRange.from)
+    const emptyDays = weekdays.filter(
+      (day) => !entries.some((e) => new Date(e.start_time).toDateString() === day.toDateString())
+    )
+    if (emptyDays.length === 0) return
+
+    const lastCompleted = entries.find((e) => e.end_time)
+    const description = lastCompleted?.description || "Work"
+    const hourly_rate = lastCompleted?.hourly_rate || 0
+
+    setIsGenerating(true)
+    try {
+      for (const day of emptyDays) {
+        for (const schedule of generateDaySchedule(day)) {
+          await createEntry.mutateAsync({ description, hourly_rate, ...schedule })
+        }
+      }
+    } finally {
+      setIsGenerating(false)
     }
   }
 
@@ -280,17 +305,23 @@ export function Timer() {
           }}
           align="start"
         />
-        {filteredEntries.length > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => exportToPdf(filteredEntries, dateRange.from, dateRange.to)}
-          >
-            <Download className="size-3.5" />
-            Export PDF
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5" disabled={isGenerating} onClick={handleGenerateWeek}>
+            <CalendarPlus className="size-3.5" />
+            {isGenerating ? "Generating..." : "Generate Week"}
           </Button>
-        )}
+          {filteredEntries.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => exportToPdf(filteredEntries, dateRange.from, dateRange.to)}
+            >
+              <Download className="size-3.5" />
+              Export PDF
+            </Button>
+          )}
+        </div>
       </div>
 
       {loadingEntries ? (

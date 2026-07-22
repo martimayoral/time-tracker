@@ -36,7 +36,7 @@ export function useCreateEntry() {
   const key = entriesKey(calendarId)
 
   return useMutation({
-    mutationFn: (entry: { description: string; start_time: string; hourly_rate?: number }) => {
+    mutationFn: (entry: { description: string; start_time: string; end_time?: string; hourly_rate?: number }) => {
       const { token, calendarId } = requireAuth()
       return createTimeEntry(token, calendarId, entry)
     },
@@ -48,7 +48,7 @@ export function useCreateEntry() {
         user_id: "",
         description: newEntry.description,
         start_time: newEntry.start_time,
-        end_time: null,
+        end_time: newEntry.end_time ?? null,
         hourly_rate: newEntry.hourly_rate ?? 0,
         created_at: newEntry.start_time,
       }
