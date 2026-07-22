@@ -20,6 +20,7 @@ export async function createTimeEntry(
     start_time: string
     end_time?: string
     hourly_rate?: number
+    notes?: string
   }
 ) {
   return gcCreate(token, calendarId, entry)
@@ -29,7 +30,7 @@ export async function updateTimeEntry(
   token: string,
   calendarId: string,
   id: string,
-  updates: Partial<Pick<TimeEntry, "description" | "start_time" | "end_time" | "hourly_rate">>
+  updates: Partial<Pick<TimeEntry, "description" | "notes" | "start_time" | "end_time" | "hourly_rate">>
 ) {
   return gcUpdate(token, calendarId, id, updates)
 }

@@ -36,7 +36,13 @@ export function useCreateEntry() {
   const key = entriesKey(calendarId)
 
   return useMutation({
-    mutationFn: (entry: { description: string; start_time: string; end_time?: string; hourly_rate?: number }) => {
+    mutationFn: (entry: {
+      description: string
+      start_time: string
+      end_time?: string
+      hourly_rate?: number
+      notes?: string
+    }) => {
       const { token, calendarId } = requireAuth()
       return createTimeEntry(token, calendarId, entry)
     },
@@ -47,6 +53,7 @@ export function useCreateEntry() {
         id: `temp-${Date.now()}`,
         user_id: "",
         description: newEntry.description,
+        notes: newEntry.notes ?? "",
         start_time: newEntry.start_time,
         end_time: newEntry.end_time ?? null,
         hourly_rate: newEntry.hourly_rate ?? 0,
@@ -78,7 +85,7 @@ export function useUpdateEntry() {
       updates,
     }: {
       id: string
-      updates: Partial<Pick<TimeEntry, "description" | "start_time" | "end_time" | "hourly_rate">>
+      updates: Partial<Pick<TimeEntry, "description" | "notes" | "start_time" | "end_time" | "hourly_rate">>
     }) => {
       const { token, calendarId } = requireAuth()
       return updateTimeEntry(token, calendarId, id, updates)

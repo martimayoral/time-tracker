@@ -68,28 +68,39 @@ export interface TimeEntry {
   id: string
   user_id: string
   description: string
+  notes: string
   start_time: string
   end_time: string | null
   hourly_rate: number
   created_at: string
 }
 
-function parseRateFromDescription(desc?: string): number | null {
-  if (!desc) return null
-  const match = desc.match(/^([\d.]+)\s*€\/h$/)
-  return match ? parseFloat(match[1]) : null
+function parseDescription(desc?: string): { rate: number; notes: string } {
+  if (!desc) return { rate: 0, notes: "" }
+  const match = desc.match(/^([\d.]+)\s*€\/h\s*([\s\S]*)$/)
+  if (match) return { rate: parseFloat(match[1]), notes: match[2].trim() }
+  return { rate: 0, notes: desc.trim() }
+}
+
+function buildDescription(rate: number, notes?: string): string | undefined {
+  const trimmedNotes = (notes || "").trim()
+  const parts = []
+  if (rate > 0) parts.push(`${rate} €/h`)
+  if (trimmedNotes) parts.push(trimmedNotes)
+  return parts.length ? parts.join("\n\n") : undefined
 }
 
 function eventToEntry(event: CalendarEvent): TimeEntry {
   const isRunning = event.extendedProperties?.private?.running === "true"
-  const rateFromDesc = parseRateFromDescription(event.description)
+  const { rate, notes } = parseDescription(event.description)
   return {
     id: event.id,
     user_id: "",
     description: event.summary || "",
+    notes,
     start_time: event.start.dateTime,
     end_time: isRunning ? null : event.end.dateTime,
-    hourly_rate: rateFromDesc || 0,
+    hourly_rate: rate || 0,
     created_at: event.created,
   }
 }
@@ -99,6 +110,7 @@ function entryToEventBody(entry: {
   start_time: string
   end_time?: string
   hourly_rate?: number
+  notes?: string
   running?: boolean
 }) {
   const isRunning = !entry.end_time
@@ -108,7 +120,7 @@ function entryToEventBody(entry: {
 
   return {
     summary: entry.description,
-    description: rate > 0 ? `${rate} €/h` : undefined,
+    description: buildDescription(rate, entry.notes),
     start: { dateTime: entry.start_time, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
     end: { dateTime: endTime, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
     extendedProperties: {
@@ -140,6 +152,7 @@ export async function createTimeEntry(
     start_time: string
     end_time?: string
     hourly_rate?: number
+    notes?: string
   }
 ): Promise<TimeEntry> {
   const body = entryToEventBody(entry)
@@ -150,7 +163,7 @@ export async function createTimeEntry(
   return eventToEntry(event)
 }
 
-type UpdateFields = Partial<Pick<TimeEntry, "description" | "start_time" | "end_time" | "hourly_rate">>
+type UpdateFields = Partial<Pick<TimeEntry, "description" | "notes" | "start_time" | "end_time" | "hourly_rate">>
 
 const pendingUpdates = new Map<
   string,
@@ -187,6 +200,7 @@ async function flushUpdate(id: string) {
         updates.end_time ??
         (existing.extendedProperties?.private?.running === "true" ? undefined : existing.end.dateTime),
       hourly_rate: updates.hourly_rate ?? parseFloat(existing.extendedProperties?.private?.hourlyRate || "0"),
+      notes: updates.notes ?? parseDescription(existing.description).notes,
     }
 
     if (updates.end_time) {

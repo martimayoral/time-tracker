@@ -1,10 +1,11 @@
-import { Trash2 } from "lucide-react"
+import { StickyNote, Trash2 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 import { TimeInput } from "@/components/time-input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
   formatDuration,
   formatDurationEditable,
@@ -35,6 +36,8 @@ export function TimeEntryRow({
   const [endTime, setEndTime] = useState(() => (entry.end_time ? formatTimeValue(entry.end_time) : ""))
   const [duration, setDuration] = useState(() => formatDurationEditable(entry.start_time, entry.end_time))
   const [rate, setRate] = useState(() => entry.hourly_rate || 0)
+  const [notes, setNotes] = useState(entry.notes)
+  const [showNotes, setShowNotes] = useState(() => !!entry.notes)
   const focusedField = useRef<string | null>(null)
 
   useEffect(() => {
@@ -43,7 +46,8 @@ export function TimeEntryRow({
     if (focusedField.current !== "endTime") setEndTime(entry.end_time ? formatTimeValue(entry.end_time) : "")
     if (focusedField.current !== "duration") setDuration(formatDurationEditable(entry.start_time, entry.end_time))
     if (focusedField.current !== "rate") setRate(entry.hourly_rate || 0)
-  }, [entry.start_time, entry.end_time, entry.description, entry.hourly_rate])
+    if (focusedField.current !== "notes") setNotes(entry.notes)
+  }, [entry.start_time, entry.end_time, entry.description, entry.hourly_rate, entry.notes])
 
   const saveDescription = () => {
     const trimmed = desc.trim()
@@ -54,6 +58,14 @@ export function TimeEntryRow({
     if (trimmed !== entry.description) {
       onUpdate(entry.id, { description: trimmed })
     }
+  }
+
+  const saveNotes = () => {
+    const trimmed = notes.trim()
+    if (trimmed !== entry.notes) {
+      onUpdate(entry.id, { notes: trimmed })
+    }
+    setNotes(trimmed)
   }
 
   const saveStartTime = () => {
@@ -242,6 +254,15 @@ export function TimeEntryRow({
           <Button
             size="icon-xs"
             variant="ghost"
+            onClick={() => setShowNotes((v) => !v)}
+            aria-label={showNotes ? "Hide note" : "Add note"}
+            className="self-center"
+          >
+            <StickyNote className={cn("size-3.5", entry.notes && "fill-current")} />
+          </Button>
+          <Button
+            size="icon-xs"
+            variant="ghost"
             onClick={() => onDelete(entry.id)}
             aria-label="Delete entry"
             className="self-center"
@@ -250,6 +271,29 @@ export function TimeEntryRow({
           </Button>
         </div>
       </CardContent>
+      {showNotes && (
+        <CardContent className="pt-0 pb-2">
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            onFocus={() => {
+              focusedField.current = "notes"
+            }}
+            onBlur={() => {
+              focusedField.current = null
+              saveNotes()
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setNotes(entry.notes)
+                e.currentTarget.blur()
+              }
+            }}
+            placeholder="Add a note..."
+            className="min-h-14 text-sm"
+          />
+        </CardContent>
+      )}
     </Card>
   )
 }
