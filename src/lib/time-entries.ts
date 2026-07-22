@@ -126,6 +126,9 @@ export function groupEntriesByDay(entries: TimeEntry[]): Map<string, TimeEntry[]
     existing.push(entry)
     groups.set(day, existing)
   }
+  for (const dayEntries of groups.values()) {
+    dayEntries.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+  }
   return groups
 }
 
