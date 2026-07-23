@@ -168,7 +168,7 @@ export function TimeEntryFields({
           />
           <span className="text-xs text-muted-foreground">€/h</span>
         </div>
-        <div className="ml-auto flex items-center gap-1">
+        <div className="flex items-center gap-1">
           {entry.end_time ? (
             <span
               onFocus={() => {
