@@ -130,6 +130,11 @@ export function Timer() {
     }
   }
 
+  function handleAdd(description: string, hourly_rate?: number) {
+    const now = new Date().toISOString()
+    createEntry.mutate({ description, start_time: now, end_time: now, hourly_rate })
+  }
+
   async function handleGenerateWeek() {
     const weekdays = getWeekdaysForWeek(dateRange.from)
     const emptyDays = weekdays.filter(
@@ -338,7 +343,14 @@ export function Timer() {
         <p className="text-center text-sm text-muted-foreground">No time entries yet. Start tracking!</p>
       ) : (
         Array.from(grouped.entries()).map(([day, dayEntries]) => (
-          <DayGroup key={day} day={day} dayEntries={dayEntries} onUpdate={handleUpdate} onDelete={handleDelete} />
+          <DayGroup
+            key={day}
+            day={day}
+            dayEntries={dayEntries}
+            onUpdate={handleUpdate}
+            onDelete={handleDelete}
+            onAdd={handleAdd}
+          />
         ))
       )}
     </div>

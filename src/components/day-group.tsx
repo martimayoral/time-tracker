@@ -13,11 +13,13 @@ export function DayGroup({
   dayEntries,
   onUpdate,
   onDelete,
+  onAdd,
 }: {
   day: string
   dayEntries: TimeEntry[]
   onUpdate: (id: string, updates: Parameters<typeof updateTimeEntry>[3]) => void
   onDelete: (id: string) => void
+  onAdd: (description: string, hourlyRate?: number) => void
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -35,7 +37,7 @@ export function DayGroup({
       <div className="flex flex-col gap-2">
         {groupEntriesByDescription(dayEntries).map((group) =>
           group.length > 1 ? (
-            <TimeEntryGroup key={group[0].id} entries={group} onUpdate={onUpdate} onDelete={onDelete} />
+            <TimeEntryGroup key={group[0].id} entries={group} onUpdate={onUpdate} onDelete={onDelete} onAdd={onAdd} />
           ) : (
             <TimeEntryRow key={group[0].id} entry={group[0]} onUpdate={onUpdate} onDelete={onDelete} />
           )

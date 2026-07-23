@@ -1,4 +1,4 @@
-import { StickyNote, Trash2 } from "lucide-react"
+import { ChevronDown, ChevronUp, Plus, StickyNote, Trash2 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 import { ghostInput, TimeEntryFields } from "@/components/time-entry-row"
@@ -13,15 +13,18 @@ export function TimeEntryGroup({
   entries,
   onUpdate,
   onDelete,
+  onAdd,
 }: {
   entries: TimeEntry[]
   onUpdate: (id: string, updates: Parameters<typeof updateTimeEntry>[3]) => void
   onDelete: (id: string) => void
+  onAdd: (description: string, hourlyRate?: number) => void
 }) {
   const firstEntry = entries[0]
   const [title, setTitle] = useState(firstEntry.description)
   const [notes, setNotes] = useState(firstEntry.notes)
   const [showNotes, setShowNotes] = useState(() => !!firstEntry.notes)
+  const [collapsed, setCollapsed] = useState(false)
   const focusedField = useRef<string | null>(null)
   const notesRef = useRef<HTMLTextAreaElement>(null)
   const focusOnOpenRef = useRef(false)
@@ -40,6 +43,14 @@ export function TimeEntryGroup({
       focusOnOpenRef.current = false
     }
   }, [showNotes])
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: resizes the textarea whenever notes content changes
+  useEffect(() => {
+    const el = notesRef.current
+    if (!showNotes || !el) return
+    el.style.height = "auto"
+    el.style.height = `${el.scrollHeight}px`
+  }, [showNotes, notes])
 
   const saveTitle = () => {
     const trimmed = title.trim()
@@ -84,11 +95,13 @@ export function TimeEntryGroup({
             }}
             className={cn("truncate font-medium", ghostInput)}
           />
-          <div className="flex flex-col gap-2">
-            {entries.map((entry) => (
-              <TimeEntryFields key={entry.id} entry={entry} onUpdate={onUpdate} onDelete={onDelete} />
-            ))}
-          </div>
+          {!collapsed && (
+            <div className="flex flex-col gap-2">
+              {entries.map((entry) => (
+                <TimeEntryFields key={entry.id} entry={entry} onUpdate={onUpdate} onDelete={onDelete} />
+              ))}
+            </div>
+          )}
           {showNotes && (
             <Textarea
               ref={notesRef}
@@ -108,7 +121,8 @@ export function TimeEntryGroup({
                 }
               }}
               placeholder="Add a note..."
-              className="min-h-14 text-sm"
+              rows={1}
+              className="min-h-0 resize-none overflow-hidden py-1.5 text-sm"
             />
           )}
         </div>
@@ -119,31 +133,49 @@ export function TimeEntryGroup({
           )}
         </div>
       </CardContent>
-      <CardFooter className="justify-end gap-1 py-1.5">
+      <CardFooter className="gap-1 py-1.5">
         <Button
           size="icon-xs"
           variant="ghost"
-          onClick={() =>
-            setShowNotes((v) => {
-              const next = !v
-              if (next) focusOnOpenRef.current = true
-              return next
-            })
-          }
-          aria-label={showNotes ? "Hide note" : "Add note for the group"}
+          onClick={() => setCollapsed((v) => !v)}
+          aria-label={collapsed ? "Expand entries" : "Collapse entries"}
         >
-          <StickyNote className={cn("size-3.5", firstEntry.notes && "fill-current")} />
+          {collapsed ? <ChevronDown className="size-3.5" /> : <ChevronUp className="size-3.5" />}
         </Button>
-        <Button
-          size="icon-xs"
-          variant="ghost"
-          onClick={() => {
-            for (const entry of entries) onDelete(entry.id)
-          }}
-          aria-label="Delete group"
-        >
-          <Trash2 className="size-3.5" />
-        </Button>
+        <div className="ml-auto flex items-center gap-1">
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            onClick={() => onAdd(firstEntry.description, firstEntry.hourly_rate)}
+            aria-label="Add entry to group"
+          >
+            <Plus className="size-3.5" />
+          </Button>
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            onClick={() =>
+              setShowNotes((v) => {
+                const next = !v
+                if (next) focusOnOpenRef.current = true
+                return next
+              })
+            }
+            aria-label={showNotes ? "Hide note" : "Add note for the group"}
+          >
+            <StickyNote className={cn("size-3.5", firstEntry.notes && "fill-current")} />
+          </Button>
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            onClick={() => {
+              for (const entry of entries) onDelete(entry.id)
+            }}
+            aria-label="Delete group"
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   )
