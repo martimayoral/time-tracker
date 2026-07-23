@@ -1,7 +1,7 @@
 import { CalendarPlus, Download, Play, Square } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
-import { TimeEntryRow } from "@/components/time-entry-row"
+import { DayGroup } from "@/components/day-group"
 import { TimeInput } from "@/components/time-input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -16,8 +16,6 @@ import {
   groupEntriesByDay,
   parseTimeOfDay,
   type TimeEntry,
-  totalDurationForDay,
-  totalEarningsForDay,
   type updateTimeEntry,
 } from "@/lib/time-entries"
 import { useTimerStore } from "@/lib/timer-store"
@@ -340,26 +338,7 @@ export function Timer() {
         <p className="text-center text-sm text-muted-foreground">No time entries yet. Start tracking!</p>
       ) : (
         Array.from(grouped.entries()).map(([day, dayEntries]) => (
-          <div key={day} className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold">{day}</h2>
-              <div className="flex items-end gap-4">
-                <span className="text-sm font-medium text-muted-foreground">
-                  Total: {totalDurationForDay(dayEntries)}
-                </span>
-                {totalEarningsForDay(dayEntries) > 0 && (
-                  <span className="text-sm font-medium text-muted-foreground">
-                    {totalEarningsForDay(dayEntries).toFixed(2)} €
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex flex-col gap-2">
-              {dayEntries.map((entry) => (
-                <TimeEntryRow key={entry.id} entry={entry} onUpdate={handleUpdate} onDelete={handleDelete} />
-              ))}
-            </div>
-          </div>
+          <DayGroup key={day} day={day} dayEntries={dayEntries} onUpdate={handleUpdate} onDelete={handleDelete} />
         ))
       )}
     </div>

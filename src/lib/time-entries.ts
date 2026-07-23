@@ -132,6 +132,22 @@ export function groupEntriesByDay(entries: TimeEntry[]): Map<string, TimeEntry[]
   return groups
 }
 
+export function groupEntriesByDescription(entries: TimeEntry[]): TimeEntry[][] {
+  const groups: TimeEntry[][] = []
+  const indexByDescription = new Map<string, number>()
+  for (const entry of entries) {
+    const key = entry.description.trim()
+    const index = indexByDescription.get(key)
+    if (index === undefined) {
+      indexByDescription.set(key, groups.length)
+      groups.push([entry])
+    } else {
+      groups[index].push(entry)
+    }
+  }
+  return groups
+}
+
 export function totalMsForDay(entries: TimeEntry[]): number {
   let totalMs = 0
   for (const entry of entries) {
