@@ -46,10 +46,13 @@ export function exportToPdf(entries: TimeEntry[], dateFrom: Date, dateTo: Date) 
   y += 12
 
   const grouped = groupEntriesByDay(entries)
+  const orderedGroups = [...grouped.entries()].sort(
+    ([, a], [, b]) => new Date(a[0].start_time).getTime() - new Date(b[0].start_time).getTime()
+  )
   let grandTotalMs = 0
   let grandTotalEarnings = 0
 
-  for (const [day, dayEntries] of grouped.entries()) {
+  for (const [day, dayEntries] of orderedGroups) {
     const dayMs = totalMsForDay(dayEntries)
     const dayEarnings = totalEarningsForDay(dayEntries)
     grandTotalMs += dayMs
