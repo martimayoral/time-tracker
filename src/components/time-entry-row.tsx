@@ -182,6 +182,7 @@ export function TimeEntryFields({
               }}
             >
               <TimeInput
+                mode="duration"
                 value={duration}
                 onValueChange={setDuration}
                 onSave={saveDuration}
