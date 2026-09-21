@@ -1,6 +1,7 @@
-import { CalendarPlus, Download, Play, Square } from "lucide-react"
+import { CalendarPlus, Download, Play, Settings2, Square } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
+import { ClockifySettingsDialog } from "@/components/clockify-settings"
 import { DayGroup } from "@/components/day-group"
 import { TimeInput } from "@/components/time-input"
 import { Button } from "@/components/ui/button"
@@ -8,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { DateRangePicker } from "@/components/ui/date-range-picker"
 import { Input } from "@/components/ui/input"
 import { useAdvancedMode } from "@/lib/advanced-mode"
+import { useClockifyStore } from "@/lib/clockify"
 import { exportToPdf } from "@/lib/export-pdf"
 import { generateDaySchedule, getWeekdaysForWeek } from "@/lib/generate-week"
 import { useCreateEntry, useDeleteEntry, useTimeEntries, useUpdateEntry } from "@/lib/queries"
@@ -36,6 +38,7 @@ export function Timer() {
   const activeEntry = entries.find((e) => !e.end_time) ?? null
   const [isGenerating, setIsGenerating] = useState(false)
   const advancedMode = useAdvancedMode()
+  const setClockifyOpen = useClockifyStore((s) => s.setSettingsOpen)
 
   const description = useTimerStore((s) => s.description)
   const setDescription = useTimerStore((s) => s.setDescription)
@@ -312,16 +315,22 @@ export function Timer() {
         />
         <div className="flex items-center gap-2">
           {advancedMode && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              disabled={isGenerating}
-              onClick={handleGenerateWeek}
-            >
-              <CalendarPlus className="size-3.5" />
-              {isGenerating ? "Generating..." : "Generate Week"}
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                disabled={isGenerating}
+                onClick={handleGenerateWeek}
+              >
+                <CalendarPlus className="size-3.5" />
+                {isGenerating ? "Generating..." : "Generate Week"}
+              </Button>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setClockifyOpen(true)}>
+                <Settings2 className="size-3.5" />
+                Clockify
+              </Button>
+            </>
           )}
           {filteredEntries.length > 0 && (
             <Button
@@ -353,6 +362,8 @@ export function Timer() {
           />
         ))
       )}
+
+      {advancedMode && <ClockifySettingsDialog />}
     </div>
   )
 }

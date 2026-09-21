@@ -2,10 +2,12 @@ import { Trash2 } from "lucide-react"
 import type * as React from "react"
 import { useEffect, useRef, useState } from "react"
 
+import { ClockifyButton } from "@/components/clockify-button"
 import { TimeInput } from "@/components/time-input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { useAdvancedMode } from "@/lib/advanced-mode"
 import {
   formatDuration,
   formatDurationEditable,
@@ -38,6 +40,7 @@ export function TimeEntryFields({
   const [duration, setDuration] = useState(() => formatDurationEditable(entry.start_time, entry.end_time))
   const [rate, setRate] = useState(() => entry.hourly_rate || 0)
   const focusedField = useRef<string | null>(null)
+  const advancedMode = useAdvancedMode()
 
   useEffect(() => {
     if (focusedField.current !== "startTime") setStartTime(formatTimeValue(entry.start_time))
@@ -198,6 +201,7 @@ export function TimeEntryFields({
               )}
             />
           )}
+          {advancedMode && <ClockifyButton entry={entry} />}
           <Button size="icon-xs" variant="ghost" onClick={() => onDelete(entry.id)} aria-label="Delete entry">
             <Trash2 className="size-3.5" />
           </Button>
