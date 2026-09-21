@@ -13,7 +13,7 @@ export interface ClockifyConfig {
 
 const EMPTY_CONFIG: ClockifyConfig = { workspaceId: "", projectId: "", token: "" }
 
-/** Prefilled into an empty settings field with ArrowLeft, so the usual setup is one keypress per field. */
+/** Prefilled into an empty settings field with ArrowRight, so the usual setup is one keypress per field. */
 export const CLOCKIFY_DEFAULTS: ClockifyConfig = {
   workspaceId: "66ebcb0bbd01ff686a97a1b7",
   projectId: "66eeb8c5893fbc32774b024d",
