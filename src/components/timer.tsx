@@ -1,6 +1,7 @@
 import { CalendarPlus, Download, Play, Settings2, Square } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
+import { ClockifyPushAllButton } from "@/components/clockify-push-all"
 import { ClockifySettingsDialog } from "@/components/clockify-settings"
 import { DayGroup } from "@/components/day-group"
 import { TimeInput } from "@/components/time-input"
@@ -330,6 +331,7 @@ export function Timer() {
                 <Settings2 className="size-3.5" />
                 Clockify
               </Button>
+              <ClockifyPushAllButton entries={filteredEntries} />
             </>
           )}
           {filteredEntries.length > 0 && (
