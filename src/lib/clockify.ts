@@ -106,6 +106,13 @@ export class ClockifyError extends Error {
   }
 }
 
+/** Times tracked here land on round minutes, which looks machine-made in Clockify, so seconds are dithered to 1–59. */
+function withRandomSeconds(iso: string): Date {
+  const date = new Date(iso)
+  date.setSeconds(1 + Math.floor(Math.random() * 59), 0)
+  return date
+}
+
 /**
  * Creates the entry in Clockify through the same endpoint the web app uses.
  * The session token it needs is short lived, so expiry is reported explicitly.
@@ -113,6 +120,11 @@ export class ClockifyError extends Error {
 export async function pushEntryToClockify(config: ClockifyConfig, entry: TimeEntry): Promise<string> {
   if (!isClockifyConfigured(config)) throw new ClockifyError("Clockify is not configured", 0)
   if (!entry.end_time) throw new ClockifyError("Entry is still running", 0)
+
+  const start = withRandomSeconds(entry.start_time)
+  const end = withRandomSeconds(entry.end_time)
+  // Dithering both ends independently can invert a very short entry.
+  if (end.getTime() <= start.getTime()) end.setTime(start.getTime() + 60000)
 
   const res = await fetch(`https://app.clockify.me/api/workspaces/${config.workspaceId.trim()}/timeEntries/full`, {
     method: "POST",
@@ -128,8 +140,8 @@ export async function pushEntryToClockify(config: ClockifyConfig, entry: TimeEnt
       taskId: null,
       tagIds: null,
       customFields: [],
-      start: new Date(entry.start_time).toISOString(),
-      end: new Date(entry.end_time).toISOString(),
+      start: start.toISOString(),
+      end: end.toISOString(),
     }),
   })
 
